@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bilheteria_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: bilheteria
+      MYSQL_USER: bilheteria_user
+      MYSQL_PASSWORD: 102030
+      MYSQL_ROOT_PASSWORD: 13579
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
