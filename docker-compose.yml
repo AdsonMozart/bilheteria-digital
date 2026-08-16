@@ -1,0 +1,18 @@
+﻿services:
+  mysql:
+    image: mysql:8.0
+    container_name: bilheteria_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-bilheteria_digital}
+      MYSQL_USER: ${DB_USERNAME:-bilheteria_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-bilheteria_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-bilheteria_root_password}
+    command: --default-time-zone=-03:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
