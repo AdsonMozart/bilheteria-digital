@@ -22,10 +22,10 @@ public class Usuario {
     private String senhaHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "nivel_acesso",nullable = false)
     private AcessoUsuario nivelAcesso;
 
-    @Column(name = "data_criacao", nullable = false)
+    @Column(name = "data_criacao", nullable = false, insertable = false, updatable = false)
     private LocalDateTime dataCriacao;
 
 
