@@ -29,7 +29,7 @@ public class Evento {
     private String titulo;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "tipo_evento", nullable = false)
     private TipoEvento tipoEvento;
 
     @Column(columnDefinition = "TEXT")
