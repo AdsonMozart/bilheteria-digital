@@ -5,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: bilheteria
-      MYSQL_USER: bilheteria_user
-      MYSQL_PASSWORD: 102030
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: 13579
     ports:
       - "3306:3306"
