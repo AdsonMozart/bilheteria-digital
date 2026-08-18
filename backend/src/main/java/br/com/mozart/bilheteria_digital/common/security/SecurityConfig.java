@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/portaria/**").hasRole("PORTARIA")
                         .requestMatchers(HttpMethod.GET, "/api/eventos/**").permitAll()
                         .requestMatchers("/api/reservas/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/pagamentos/**").hasRole("CLIENTE")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

@@ -74,6 +74,10 @@ public class Reserva {
         return this.status == StatusReserva.PENDENTE;
     }
 
+    public boolean pertenceAoCliente(Long clienteId) {
+        return this.cliente.getId().equals(clienteId);
+    }
+
     // gets
     public Long getId() {
         return id;
