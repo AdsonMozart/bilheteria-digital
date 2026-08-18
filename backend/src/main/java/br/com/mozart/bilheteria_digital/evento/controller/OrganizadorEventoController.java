@@ -30,4 +30,14 @@ public class OrganizadorEventoController {
         return ResponseEntity.ok(eventoService.listarEventosDoOrganizador(organizador));
     }
 
+    @PostMapping("/{id}/publicar")
+    public ResponseEntity<EventoResponse> publicar(@AuthenticationPrincipal Usuario organizador, @PathVariable Long id) {
+        return ResponseEntity.ok(eventoService.publicarEvento(organizador, id));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<EventoResponse> cancelar(@AuthenticationPrincipal Usuario organizador, @PathVariable Long id) {
+        return ResponseEntity.ok(eventoService.cancelarEvento(organizador, id));
+    }
+
 }
