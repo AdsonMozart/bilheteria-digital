@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface AssentoRepository extends JpaRepository<Assento, Long> {
 
-    List<Assento> findByEventoId(Long eventoId);
+    List<Assento> findByEvento_Id(Long eventoId);
 
-    List<Assento> findByEventoIdAndStatus(Long eventoId, StatusAssento status);
+    List<Assento> findByEvento_IdAndStatus(Long eventoId, StatusAssento status);
 }

@@ -1,6 +1,7 @@
 package br.com.mozart.bilheteria_digital.pagamento.service;
 
 import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
+import br.com.mozart.bilheteria_digital.ingresso.service.IngressoService;
 import br.com.mozart.bilheteria_digital.pagamento.domain.Pagamento;
 import br.com.mozart.bilheteria_digital.pagamento.dto.PagamentoResponse;
 import br.com.mozart.bilheteria_digital.pagamento.repository.PagamentoRepository;
@@ -16,15 +17,18 @@ public class PagamentoService {
     private final PagamentoRepository pagamentoRepository;
     private final ReservaRepository reservaRepository;
     private final EventoRepository eventoRepository;
+    private final IngressoService ingressoService;
 
     public PagamentoService(
             PagamentoRepository pagamentoRepository,
             ReservaRepository reservaRepository,
-            EventoRepository eventoRepository
+            EventoRepository eventoRepository,
+            IngressoService ingressoService
     ) {
         this.pagamentoRepository = pagamentoRepository;
         this.reservaRepository = reservaRepository;
         this.eventoRepository = eventoRepository;
+        this.ingressoService = ingressoService;
     }
 
     @Transactional
@@ -35,7 +39,7 @@ public class PagamentoService {
             throw new IllegalArgumentException("Reserva nao esta pendente");
         }
 
-        pagamentoRepository.findByReservaId(reservaId).ifPresent(pagamento -> {
+        pagamentoRepository.findByReserva_Id(reservaId).ifPresent(pagamento -> {
             throw new IllegalArgumentException("Pagamento ja existe para esta reserva");
         });
 
@@ -50,6 +54,7 @@ public class PagamentoService {
 
         pagamento.aprovar();
         pagamento.getReserva().marcarComoPaga();
+        ingressoService.gerarIngressosParaReserva(pagamento.getReserva());
 
         return PagamentoResponse.from(pagamentoRepository.save(pagamento));
     }

@@ -41,7 +41,7 @@ public class EventoService {
     }
 
     public List<EventoResponse> listarEventosDoOrganizador(Usuario organizador) {
-        return eventoRepository.findByOrganizadorId(organizador.getId())
+        return eventoRepository.findByOrganizador_Id(organizador.getId())
                 .stream()
                 .map(EventoResponse::from)
                 .toList();

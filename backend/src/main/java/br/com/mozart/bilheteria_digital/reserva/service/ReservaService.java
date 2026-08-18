@@ -69,7 +69,7 @@ public class ReservaService {
     }
 
     public List<ReservaResponse> listarReservasDoCliente(Usuario cliente) {
-        return reservaRepository.findByClienteId(cliente.getId())
+        return reservaRepository.findByCliente_Id(cliente.getId())
                 .stream()
                 .map(ReservaResponse::from)
                 .toList();

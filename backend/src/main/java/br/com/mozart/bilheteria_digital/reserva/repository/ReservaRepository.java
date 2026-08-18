@@ -10,9 +10,9 @@ import java.util.List;
 @Repository
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
-    List<Reserva> findByClienteId(Long clienteId);
+    List<Reserva> findByCliente_Id(Long clienteId);
 
-    List<Reserva> findByEventoId(Long eventoId);
+    List<Reserva> findByEvento_Id(Long eventoId);
 
     List<Reserva> findByStatus(StatusReserva status);
 
