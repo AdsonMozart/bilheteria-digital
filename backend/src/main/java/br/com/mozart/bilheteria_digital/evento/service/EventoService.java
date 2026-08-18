@@ -1,12 +1,15 @@
 package br.com.mozart.bilheteria_digital.evento.service;
 
+import br.com.mozart.bilheteria_digital.assento.service.AssentoService;
 import br.com.mozart.bilheteria_digital.evento.domain.Evento;
 import br.com.mozart.bilheteria_digital.evento.domain.StatusEvento;
 import br.com.mozart.bilheteria_digital.evento.dto.CriarEventoRequest;
+import br.com.mozart.bilheteria_digital.evento.dto.EventoDetalheResponse;
 import br.com.mozart.bilheteria_digital.evento.dto.EventoResponse;
 import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -14,9 +17,11 @@ import java.util.List;
 public class EventoService {
 
     private final EventoRepository eventoRepository;
+    private final AssentoService assentoService;
 
-    public EventoService(EventoRepository eventoRepository) {
+    public EventoService(EventoRepository eventoRepository, AssentoService assentoService) {
         this.eventoRepository = eventoRepository;
+        this.assentoService = assentoService;
     }
 
     public EventoResponse criarEvento(Usuario organizador, CriarEventoRequest request) {
@@ -47,6 +52,7 @@ public class EventoService {
                 .toList();
     }
 
+    @Transactional
     public EventoResponse publicarEvento(Usuario organizador, Long eventoId) {
         Evento evento = eventoRepository.findById(eventoId).orElseThrow(() -> new IllegalArgumentException("Evento nao encontrado"));
 
@@ -55,6 +61,7 @@ public class EventoService {
         }
 
         evento.publicar();
+        assentoService.gerarAssentosParaEvento(evento);
 
         Evento eventoSalvo = eventoRepository.save(evento);
         return EventoResponse.from(eventoSalvo);
@@ -75,7 +82,7 @@ public class EventoService {
                 .toList();
     }
 
-    public EventoResponse detalharEventoPublicado(Long eventoId) {
+    public EventoDetalheResponse detalharEventoPublicado(Long eventoId) {
         Evento evento = eventoRepository.findById(eventoId)
                 .orElseThrow(() -> new IllegalArgumentException("Evento nao encontrado"));
 
@@ -83,7 +90,7 @@ public class EventoService {
             throw new IllegalArgumentException("Evento nao encontrado");
         }
 
-        return EventoResponse.from(evento);
+        return EventoDetalheResponse.from(evento, assentoService.listarAssentosDoEvento(evento.getId()));
     }
 
     private Evento buscarEventoDoOrganizador(Usuario organizador, Long eventoId) {

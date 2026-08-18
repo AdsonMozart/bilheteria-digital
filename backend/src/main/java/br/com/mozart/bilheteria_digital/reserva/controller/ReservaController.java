@@ -22,7 +22,7 @@ public class ReservaController {
 
     @PostMapping
     public ResponseEntity<ReservaResponse> criar(@AuthenticationPrincipal Usuario cliente, @RequestBody CriarReservaRequest request) {
-        return ResponseEntity.ok(reservaService.criarReservaGeral(cliente, request));
+        return ResponseEntity.ok(reservaService.criarReserva(cliente, request));
     }
 
     @GetMapping("/{id}")

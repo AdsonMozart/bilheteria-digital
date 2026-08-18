@@ -1,5 +1,7 @@
 package br.com.mozart.bilheteria_digital.pagamento.service;
 
+import br.com.mozart.bilheteria_digital.assento.domain.StatusAssento;
+import br.com.mozart.bilheteria_digital.assento.repository.AssentoRepository;
 import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
 import br.com.mozart.bilheteria_digital.ingresso.service.IngressoService;
 import br.com.mozart.bilheteria_digital.pagamento.domain.Pagamento;
@@ -18,17 +20,20 @@ public class PagamentoService {
     private final ReservaRepository reservaRepository;
     private final EventoRepository eventoRepository;
     private final IngressoService ingressoService;
+    private final AssentoRepository assentoRepository;
 
     public PagamentoService(
             PagamentoRepository pagamentoRepository,
             ReservaRepository reservaRepository,
             EventoRepository eventoRepository,
-            IngressoService ingressoService
+            IngressoService ingressoService,
+            AssentoRepository assentoRepository
     ) {
         this.pagamentoRepository = pagamentoRepository;
         this.reservaRepository = reservaRepository;
         this.eventoRepository = eventoRepository;
         this.ingressoService = ingressoService;
+        this.assentoRepository = assentoRepository;
     }
 
     @Transactional
@@ -54,6 +59,15 @@ public class PagamentoService {
 
         pagamento.aprovar();
         pagamento.getReserva().marcarComoPaga();
+
+        if (pagamento.getReserva().getEvento().possuiAssentos()) {
+            assentoRepository.venderAssentosDaReserva(
+                    pagamento.getReserva().getId(),
+                    StatusAssento.RESERVADO,
+                    StatusAssento.VENDIDO
+            );
+        }
+
         ingressoService.gerarIngressosParaReserva(pagamento.getReserva());
 
         return PagamentoResponse.from(pagamentoRepository.save(pagamento));
@@ -68,10 +82,17 @@ public class PagamentoService {
         Reserva reserva = pagamento.getReserva();
         reserva.marcarComoRecusada();
 
-        eventoRepository.liberarCapacidadeGeral(
-                reserva.getEvento().getId(),
-                reserva.getQuantidade()
-        );
+        if (reserva.getEvento().possuiAssentos()) {
+            assentoRepository.liberarAssentosDaReserva(
+                    reserva.getId(),
+                    StatusAssento.DISPONIVEL
+            );
+        } else {
+            eventoRepository.liberarCapacidadeGeral(
+                    reserva.getEvento().getId(),
+                    reserva.getQuantidade()
+            );
+        }
 
         return PagamentoResponse.from(pagamentoRepository.save(pagamento));
     }
