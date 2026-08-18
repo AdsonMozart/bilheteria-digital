@@ -1,5 +1,6 @@
 package br.com.mozart.bilheteria_digital.evento.controller;
 
+import br.com.mozart.bilheteria_digital.evento.dto.EventoDetalheResponse;
 import br.com.mozart.bilheteria_digital.evento.dto.EventoResponse;
 import br.com.mozart.bilheteria_digital.evento.service.EventoService;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,7 @@ public class EventoPublicoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EventoResponse> detalharEventoPublicado(@PathVariable Long id) {
+    public ResponseEntity<EventoDetalheResponse> detalharEventoPublicado(@PathVariable Long id) {
         return ResponseEntity.ok(eventoService.detalharEventoPublicado(id));
     }
 }
