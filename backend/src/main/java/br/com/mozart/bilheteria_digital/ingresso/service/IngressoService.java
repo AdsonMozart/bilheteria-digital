@@ -1,6 +1,7 @@
 package br.com.mozart.bilheteria_digital.ingresso.service;
 
 import br.com.mozart.bilheteria_digital.ingresso.domain.Ingresso;
+import br.com.mozart.bilheteria_digital.ingresso.dto.IngressoCompartilhadoResponse;
 import br.com.mozart.bilheteria_digital.ingresso.dto.IngressoResponse;
 import br.com.mozart.bilheteria_digital.ingresso.repository.IngressoRepository;
 import br.com.mozart.bilheteria_digital.reserva.domain.Reserva;
@@ -70,5 +71,12 @@ public class IngressoService {
                 .issuedAt(java.util.Date.from(agora))
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public IngressoCompartilhadoResponse buscarIngressoCompartilhado(String tokenCompartilhamento) {
+        Ingresso ingresso = ingressoRepository.findByTokenCompartilhamento(tokenCompartilhamento)
+                .orElseThrow(() -> new IllegalArgumentException("Ingresso compartilhado nao encontrado"));
+
+        return IngressoCompartilhadoResponse.from(ingresso);
     }
 }
