@@ -11,11 +11,13 @@ import java.util.Optional;
 @Repository
 public interface IngressoRepository extends JpaRepository<Ingresso, Long> {
 
-    List<Ingresso> findByReservaId(Long reservaId);
+    List<Ingresso> findByReserva_Id(Long reservaId);
+
+    List<Ingresso> findByReserva_Cliente_Id(Long clientId);
 
     Optional<Ingresso> findByCodigo(String codigo);
 
-    Optional<Ingresso> findByTokenCompartilhamento(String tokencompartilamento);
+    Optional<Ingresso> findByTokenCompartilhamento(String tokenCompartilamento);
 
     List<Ingresso> findByStatus(StatusIngresso status);
 }

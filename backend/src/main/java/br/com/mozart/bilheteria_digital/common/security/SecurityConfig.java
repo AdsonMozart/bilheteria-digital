@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/eventos/**").permitAll()
                         .requestMatchers("/api/reservas/**").hasRole("CLIENTE")
                         .requestMatchers("/api/pagamentos/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/me/ingressos/**").hasRole("CLIENTE")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

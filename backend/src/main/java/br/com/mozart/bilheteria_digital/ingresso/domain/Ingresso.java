@@ -60,7 +60,7 @@ public class Ingresso {
         this.validadoEm = dataValidacao;
     }
 
-    public void Cancelar() {
+    public void cancelar() {
         this.status = StatusIngresso.CANCELADO;
     }
 

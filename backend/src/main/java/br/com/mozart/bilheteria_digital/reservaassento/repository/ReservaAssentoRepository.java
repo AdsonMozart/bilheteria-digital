@@ -10,6 +10,6 @@ import java.util.List;
 @Repository
 public interface ReservaAssentoRepository extends JpaRepository<ReservaAssento, ReservaAssentoId> {
 
-    List<ReservaAssento> findByReservaId(Long reservaId);
-    List<ReservaAssento> findByAssentoId(Long assentoId);
+    List<ReservaAssento> findByReserva_Id(Long reservaId);
+    List<ReservaAssento> findByAssento_Id(Long assentoId);
 }
