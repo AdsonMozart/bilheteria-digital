@@ -4,8 +4,7 @@ import br.com.mozart.bilheteria_digital.auth.dto.AuthResponse;
 import br.com.mozart.bilheteria_digital.auth.dto.LoginRequest;
 import br.com.mozart.bilheteria_digital.auth.dto.RegistroRequest;
 import br.com.mozart.bilheteria_digital.auth.service.AuthService;
-import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
-import org.apache.coyote.Response;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,7 +23,7 @@ public class AuthController {
 
     @PostMapping("/registrar")
     public ResponseEntity<AuthResponse> registrar(@RequestBody RegistroRequest request) {
-        return ResponseEntity.ok(authService.registrar(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(request));
     }
 
     @PostMapping("/login")

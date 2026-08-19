@@ -49,10 +49,18 @@ public class Pagamento {
 
     // metodo de comportamentos do pagamento
     public void aprovar() {
+        if (this.status == StatusPagamento.APROVADO) {
+            return;
+        }
+
         this.status = StatusPagamento.APROVADO;
     }
 
     public void recusar() {
+        if (this.status == StatusPagamento.APROVADO) {
+            throw new IllegalStateException("Pagamento aprovado nao pode ser recusado");
+        }
+
         this.status = StatusPagamento.RECUSADO;
     }
 
