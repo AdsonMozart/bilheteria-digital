@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/me").authenticated()
 
                         .requestMatchers("/api/organizador/**").hasRole("ORGANIZADOR")
+                        .requestMatchers("/api/catalogo/**").hasRole("ORGANIZADOR")
                         .requestMatchers("/api/cliente/**").hasRole("CLIENTE")
                         .requestMatchers("/api/portaria/**").hasRole("PORTARIA")
                         .requestMatchers(HttpMethod.GET, "/api/eventos/**").permitAll()
