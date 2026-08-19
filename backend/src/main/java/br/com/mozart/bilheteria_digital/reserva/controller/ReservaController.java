@@ -4,6 +4,7 @@ import br.com.mozart.bilheteria_digital.reserva.dto.CriarReservaRequest;
 import br.com.mozart.bilheteria_digital.reserva.dto.ReservaResponse;
 import br.com.mozart.bilheteria_digital.reserva.service.ReservaService;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,7 @@ public class ReservaController {
 
     @PostMapping
     public ResponseEntity<ReservaResponse> criar(@AuthenticationPrincipal Usuario cliente, @RequestBody CriarReservaRequest request) {
-        return ResponseEntity.ok(reservaService.criarReserva(cliente, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.criarReserva(cliente, request));
     }
 
     @GetMapping("/{id}")
