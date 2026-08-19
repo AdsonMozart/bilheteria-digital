@@ -4,6 +4,8 @@ import br.com.mozart.bilheteria_digital.evento.dto.EventoDetalheResponse;
 import br.com.mozart.bilheteria_digital.evento.dto.EventoResponse;
 import br.com.mozart.bilheteria_digital.evento.domain.TipoEvento;
 import br.com.mozart.bilheteria_digital.evento.service.EventoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/eventos")
+@Tag(name = "Eventos publicos", description = "Consulta publica de eventos publicados")
 public class EventoPublicoController {
 
     private final EventoService eventoService;
@@ -28,11 +31,13 @@ public class EventoPublicoController {
     }
 
     @GetMapping
+    @Operation(summary = "Listar eventos publicados")
     public ResponseEntity<List<EventoResponse>> listarEventosPublicados() {
         return ResponseEntity.ok(eventoService.listarEventosPublicados());
     }
 
     @GetMapping("/buscar")
+    @Operation(summary = "Buscar eventos publicados com filtros e paginacao")
     public ResponseEntity<Page<EventoResponse>> buscarEventosPublicados(
             @RequestParam(required = false) String titulo,
             @RequestParam(required = false) TipoEvento tipo,
@@ -54,6 +59,7 @@ public class EventoPublicoController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Detalhar evento publicado")
     public ResponseEntity<EventoDetalheResponse> detalharEventoPublicado(@PathVariable Long id) {
         return ResponseEntity.ok(eventoService.detalharEventoPublicado(id));
     }

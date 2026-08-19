@@ -4,6 +4,8 @@ import br.com.mozart.bilheteria_digital.portaria.dto.ValidacaoIngressoResponse;
 import br.com.mozart.bilheteria_digital.portaria.dto.ValidarIngressoRequest;
 import br.com.mozart.bilheteria_digital.portaria.service.PortariaService;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/portaria")
+@Tag(name = "Portaria", description = "Validacao de ingressos na entrada")
 public class PortariaController {
 
     private final PortariaService portariaService;
@@ -23,6 +26,7 @@ public class PortariaController {
     }
 
     @PostMapping("/validar")
+    @Operation(summary = "Validar ingresso por codigo QR")
     public ResponseEntity<ValidacaoIngressoResponse> validar(@AuthenticationPrincipal Usuario usuarioPortaria, @Valid @RequestBody ValidarIngressoRequest request) {
         return ResponseEntity.ok(portariaService.validarIngresso(usuarioPortaria, request));
     }

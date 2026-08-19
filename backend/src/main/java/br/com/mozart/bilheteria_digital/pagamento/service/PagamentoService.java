@@ -5,6 +5,7 @@ import br.com.mozart.bilheteria_digital.assento.repository.AssentoRepository;
 import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
 import br.com.mozart.bilheteria_digital.ingresso.service.IngressoService;
 import br.com.mozart.bilheteria_digital.pagamento.domain.Pagamento;
+import br.com.mozart.bilheteria_digital.pagamento.domain.StatusPagamento;
 import br.com.mozart.bilheteria_digital.pagamento.dto.CriarPaymentIntentResponse;
 import br.com.mozart.bilheteria_digital.pagamento.dto.PagamentoResponse;
 import br.com.mozart.bilheteria_digital.pagamento.repository.PagamentoRepository;
@@ -94,18 +95,7 @@ public class PagamentoService {
     public PagamentoResponse aprovarPagamento(Usuario cliente, Long pagamentoId) {
         Pagamento pagamento = buscarPagamentoDoCliente(cliente, pagamentoId);
 
-        pagamento.aprovar();
-        pagamento.getReserva().marcarComoPaga();
-
-        if (pagamento.getReserva().getEvento().possuiAssentos()) {
-            assentoRepository.venderAssentosDaReserva(
-                    pagamento.getReserva().getId(),
-                    StatusAssento.RESERVADO,
-                    StatusAssento.VENDIDO
-            );
-        }
-
-        ingressoService.gerarIngressosParaReserva(pagamento.getReserva());
+        processarPagamentoAprovado(pagamento);
 
         return PagamentoResponse.from(pagamentoRepository.save(pagamento));
     }
@@ -114,22 +104,7 @@ public class PagamentoService {
     public PagamentoResponse recusarPagamento(Usuario cliente, Long pagamentoId) {
         Pagamento pagamento = buscarPagamentoDoCliente(cliente, pagamentoId);
 
-        pagamento.recusar();
-
-        Reserva reserva = pagamento.getReserva();
-        reserva.marcarComoRecusada();
-
-        if (reserva.getEvento().possuiAssentos()) {
-            assentoRepository.liberarAssentosDaReserva(
-                    reserva.getId(),
-                    StatusAssento.DISPONIVEL
-            );
-        } else {
-            eventoRepository.liberarCapacidadeGeral(
-                    reserva.getEvento().getId(),
-                    reserva.getQuantidade()
-            );
-        }
+        processarPagamentoRecusado(pagamento);
 
         return PagamentoResponse.from(pagamentoRepository.save(pagamento));
     }
@@ -139,18 +114,7 @@ public class PagamentoService {
         Pagamento pagamento = pagamentoRepository.findByPagamentoStripeId(pagamentoStripeId)
                 .orElseThrow(() -> new IllegalArgumentException("Pagamento Stripe nao encontrado"));
 
-        pagamento.aprovar();
-        pagamento.getReserva().marcarComoPaga();
-
-        if (pagamento.getReserva().getEvento().possuiAssentos()) {
-            assentoRepository.venderAssentosDaReserva(
-                    pagamento.getReserva().getId(),
-                    StatusAssento.RESERVADO,
-                    StatusAssento.VENDIDO
-            );
-        }
-
-        ingressoService.gerarIngressosParaReserva(pagamento.getReserva());
+        processarPagamentoAprovado(pagamento);
 
         pagamentoRepository.save(pagamento);
     }
@@ -160,11 +124,57 @@ public class PagamentoService {
         Pagamento pagamento = pagamentoRepository.findByPagamentoStripeId(pagamentoStripeId)
                 .orElseThrow(() -> new IllegalArgumentException("Pagamento Stripe nao encontrado"));
 
-        pagamento.recusar();
+        processarPagamentoRecusado(pagamento);
+
+        pagamentoRepository.save(pagamento);
+    }
+
+    private void processarPagamentoAprovado(Pagamento pagamento) {
+        if (pagamento.getStatus() == StatusPagamento.APROVADO) {
+            return;
+        }
+
+        if (pagamento.getStatus() == StatusPagamento.RECUSADO) {
+            throw new IllegalStateException("Pagamento recusado nao pode ser aprovado");
+        }
 
         Reserva reserva = pagamento.getReserva();
-        reserva.marcarComoRecusada();
 
+        if (!reserva.estaPendente()) {
+            throw new IllegalStateException("Reserva nao esta pendente para aprovacao");
+        }
+
+        pagamento.aprovar();
+        reserva.marcarComoPaga();
+
+        if (reserva.getEvento().possuiAssentos()) {
+            assentoRepository.venderAssentosDaReserva(
+                    reserva.getId(),
+                    StatusAssento.RESERVADO,
+                    StatusAssento.VENDIDO
+            );
+        }
+
+        ingressoService.gerarIngressosParaReserva(reserva);
+    }
+
+    private void processarPagamentoRecusado(Pagamento pagamento) {
+        if (pagamento.getStatus() == StatusPagamento.RECUSADO) {
+            return;
+        }
+
+        Reserva reserva = pagamento.getReserva();
+
+        if (!reserva.estaPendente()) {
+            throw new IllegalStateException("Reserva nao esta pendente para recusa");
+        }
+
+        pagamento.recusar();
+        reserva.marcarComoRecusada();
+        liberarEstoqueDaReserva(reserva);
+    }
+
+    private void liberarEstoqueDaReserva(Reserva reserva) {
         if (reserva.getEvento().possuiAssentos()) {
             assentoRepository.liberarAssentosDaReserva(
                     reserva.getId(),
@@ -176,8 +186,6 @@ public class PagamentoService {
                     reserva.getQuantidade()
             );
         }
-
-        pagamentoRepository.save(pagamento);
     }
 
     private Reserva buscarReservaDoCliente(Usuario cliente, Long reservaId) {

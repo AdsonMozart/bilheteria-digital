@@ -59,6 +59,7 @@ O projeto usa variaveis de ambiente para todos os segredos e chaves externas:
 DB_USERNAME
 DB_PASSWORD
 JWT_SECRET
+APP_CORS_ALLOWED_ORIGINS
 TMDB_ACCESS_TOKEN
 TICKETMASTER_API_KEY
 STRIPE_SECRET_KEY
@@ -142,8 +143,9 @@ No PowerShell:
 ```powershell
 cd backend
 $env:DB_USERNAME="bilheteria_user"
-$env:DB_PASSWORD="troque-esta-senha-local"
+$env:DB_PASSWORD="102030"
 $env:JWT_SECRET="chave-local-com-pelo-menos-32-caracteres"
+$env:APP_CORS_ALLOWED_ORIGINS="http://localhost:5173"
 $env:TMDB_ACCESS_TOKEN="TOKEN_TMDB_DO_AVALIADOR"
 $env:TICKETMASTER_API_KEY="CONSUMER_KEY_TICKETMASTER_DO_AVALIADOR"
 $env:TICKETMASTER_COUNTRY_CODE="BR"
@@ -225,13 +227,16 @@ http://localhost:8080
 Teste rapido:
 
 ```http
-GET http://localhost:8080/api/eventos
+GET http://localhost:8080/api/health
 ```
 
-Resposta esperada em banco vazio:
+Resposta esperada:
 
 ```json
-[]
+{
+  "status": "UP",
+  "service": "bilheteria-digital"
+}
 ```
 
 Swagger:
@@ -240,27 +245,31 @@ Swagger:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-## 6. Criar Usuarios De Avaliacao
+## 6. Usuarios E Eventos De Avaliacao
 
-Estado atual conhecido: o cadastro publico cria usuarios `CLIENTE`, mas nao cria `ORGANIZADOR` nem `PORTARIA`. Enquanto a migration de seed nao estiver presente, esses usuarios devem ser criados diretamente no banco para testar todos os perfis.
+A migration `V8__seed_dados_avaliacao.sql` cria automaticamente usuarios e eventos de teste quando o backend inicia com o Flyway.
 
-A senha dos usuarios abaixo e:
+A senha de todos os usuarios abaixo e:
 
 ```text
 123456
 ```
 
-Execute no MySQL:
+Usuarios disponiveis:
 
-```sql
-INSERT INTO usuarios (nome, email, senha_hash, nivel_acesso)
-VALUES
-('Organizador Teste', 'organizador@teste.com', '$2a$10$.AncOLIFrX/Og8ZEeDpHrOHM5PGr9.8GnWW/UVacUVdjBU2IB6qLC', 'ORGANIZADOR'),
-('Cliente Teste', 'cliente@teste.com', '$2a$10$.AncOLIFrX/Og8ZEeDpHrOHM5PGr9.8GnWW/UVacUVdjBU2IB6qLC', 'CLIENTE'),
-('Portaria Teste', 'portaria@teste.com', '$2a$10$.AncOLIFrX/Og8ZEeDpHrOHM5PGr9.8GnWW/UVacUVdjBU2IB6qLC', 'PORTARIA');
+```text
+organizador@teste.com  ORGANIZADOR
+cliente1@teste.com     CLIENTE
+cliente2@teste.com     CLIENTE
+portaria@teste.com     PORTARIA
 ```
 
-Caso os usuarios ja existam, remova linhas duplicadas manualmente ou altere os emails no SQL.
+Eventos publicados criados automaticamente:
+
+```text
+Show Teste Pista       SHOW   capacidade geral
+Cinema Teste Assentos  FILME  20 assentos disponiveis
+```
 
 ## 7. Testar Login Dos Perfis
 
@@ -284,7 +293,7 @@ Body para cliente:
 
 ```json
 {
-  "email": "cliente@teste.com",
+  "email": "cliente1@teste.com",
   "senha": "123456"
 }
 ```
@@ -461,6 +470,33 @@ GET http://localhost:8080/api/eventos
 ```
 
 Resposta esperada: lista com os eventos publicados.
+
+Buscar eventos com filtros e paginacao:
+
+```http
+GET http://localhost:8080/api/eventos/buscar?page=0&size=10&sort=dataHora,asc
+```
+
+Filtros disponiveis:
+
+```text
+titulo
+tipo=SHOW ou FILME
+local
+dataInicio=2026-12-01
+dataFim=2026-12-31
+organizadorId
+page
+size
+sort=dataHora,asc
+sort=preco,desc
+```
+
+Exemplo:
+
+```http
+GET http://localhost:8080/api/eventos/buscar?titulo=teste&tipo=SHOW&local=arena&page=0&size=5&sort=preco,desc
+```
 
 Detalhar um evento:
 
@@ -750,7 +786,33 @@ Resultado esperado:
 INVALIDO
 ```
 
-## 21. Rodar O Frontend
+## 21. Testar Cancelamento Com Devolucao Ao Estoque
+
+Use o token do organizador.
+
+```http
+POST http://localhost:8080/api/organizador/eventos/ID_EVENTO/cancelar
+Authorization: Bearer TOKEN_ORGANIZADOR
+```
+
+Comportamento esperado:
+
+- O evento vira `CANCELADO`.
+- Reservas ativas do evento viram `CANCELADA`.
+- Ingressos emitidos do evento viram `CANCELADO`.
+- Capacidade geral ou assentos vinculados sao liberados.
+
+## 22. Expiracao Automatica De Reservas
+
+Reservas pendentes expiram automaticamente. O backend verifica reservas vencidas a cada 60 segundos.
+
+Comportamento esperado:
+
+- Reserva `PENDENTE` vencida vira `EXPIRADA`.
+- Evento de capacidade geral tem estoque devolvido.
+- Evento com assentos tem os assentos liberados.
+
+## 23. Rodar O Frontend
 
 Crie o arquivo local:
 
@@ -779,7 +841,7 @@ URL local:
 http://localhost:5173
 ```
 
-## 22. Status HTTP Esperados
+## 24. Status HTTP Esperados
 
 Principais retornos:
 
@@ -788,26 +850,88 @@ Principais retornos:
 - `400 Bad Request`: request invalido ou regra de negocio violada.
 - `401 Unauthorized`: ausencia ou invalidade do JWT em rota protegida.
 - `403 Forbidden`: usuario autenticado sem permissao para a rota.
+- `404 Not Found`: recurso nao encontrado.
+- `409 Conflict`: conflito de estado ou dados.
 
-## 23. Estado Atual E Limitacoes Conhecidas
+Resposta padrao de erro:
+
+```json
+{
+  "timestamp": "2026-08-19T19:00:00",
+  "status": 400,
+  "erro": "Requisicao invalida",
+  "mensagem": "Mensagem do erro",
+  "path": "/api/exemplo",
+  "campos": null
+}
+```
+
+## 25. Configuracao Para Producao
+
+O backend possui profile `prod`.
+
+Variaveis principais:
+
+```text
+SPRING_PROFILES_ACTIVE=prod
+DB_URL=jdbc:mysql://HOST:PORTA/DATABASE
+DB_USERNAME=usuario
+DB_PASSWORD=senha
+JWT_SECRET=chave-com-pelo-menos-32-caracteres
+APP_CORS_ALLOWED_ORIGINS=https://seu-frontend.vercel.app
+TMDB_ACCESS_TOKEN=token_tmdb
+TICKETMASTER_API_KEY=chave_ticketmaster
+STRIPE_SECRET_KEY=sk_test_ou_sk_live
+STRIPE_WEBHOOK_SECRET=whsec_producao
+```
+
+Em producao, configure o webhook da Stripe para:
+
+```text
+https://URL_DO_BACKEND/api/webhooks/stripe
+```
+
+## 26. Estado Atual E Limitacoes Conhecidas
 
 Este projeto possui backend funcional para os principais fluxos: autenticacao, catalogo externo TMDb/Ticketmaster, eventos, reservas, Stripe test mode, ingressos, compartilhamento e portaria.
 
 Pontos ainda pendentes ou limitados nesta versao:
 
-- Nao ha migration de seed versionada criando usuarios e eventos automaticamente. Por isso este README inclui SQL manual para criar usuarios de avaliacao.
-- O endpoint publico de cadastro cria apenas usuarios `CLIENTE`. Usuarios `ORGANIZADOR` e `PORTARIA` precisam ser criados por seed ou SQL manual.
+- O endpoint publico de cadastro cria apenas usuarios `CLIENTE`. Usuarios `ORGANIZADOR` e `PORTARIA` sao criados pela migration de seed para avaliacao.
 - O fluxo Stripe completo exige Stripe CLI rodando localmente para encaminhar webhooks ao backend.
-- A listagem publica de eventos ainda nao documenta filtros avancados por cidade/data no README.
 - A documentacao de deploy final deve ser preenchida quando as URLs de producao estiverem disponiveis.
 
-## 24. Comandos Uteis
+## 27. Testes Do Backend
+
+Foram adicionados testes basicos para:
+
+- login e cadastro;
+- permissoes por perfil;
+- criacao, publicacao e cancelamento de eventos;
+- reserva geral;
+- reserva por assento;
+- expiracao automatica;
+- pagamento aprovado e recusado;
+- validacao da portaria.
+
+## 28. Uso De IA
+
+Durante o desenvolvimento, ferramentas de IA foram usadas como apoio para revisao de requisitos, organizacao de tarefas, sugestao de testes e apoio na escrita de partes do backend. As decisoes de regra de negocio, nomes finais, validacao manual e testes foram revisados no proprio projeto.
+
+## 29. Comandos Uteis
 
 Rodar testes do backend:
 
 ```powershell
 cd backend
 .\mvnw.cmd test
+```
+
+Gerar o `.jar` do backend:
+
+```powershell
+cd backend
+.\mvnw.cmd package
 ```
 
 Limpar e testar backend:
@@ -829,23 +953,27 @@ Ver logs do MySQL:
 docker logs bilheteria_mysql
 ```
 
-## 25. Checklist De Avaliacao
+## 30. Checklist De Avaliacao
 
 Para validar o sistema de ponta a ponta:
 
 1. MySQL rodando.
 2. Backend rodando em `localhost:8080`.
-3. Usuarios de avaliacao criados.
-4. Login funcionando para `ORGANIZADOR`, `CLIENTE` e `PORTARIA`.
-5. Busca TMDb funcionando.
-6. Busca Ticketmaster funcionando.
-7. Evento geral criado e publicado.
-8. Evento com assentos criado e publicado.
-9. Reserva geral criada.
-10. Reserva com assento criada.
-11. PaymentIntent criado.
-12. Stripe CLI encaminhando webhook com `[200]`.
-13. Reserva aprovada virando `PAGA`.
-14. Ingresso gerado.
-15. Compartilhamento publico funcionando.
-16. Portaria retornando `VALIDO`, `JA_UTILIZADO`, `EVENTO_ERRADO` e `INVALIDO`.
+3. `GET /api/health` retornando `UP`.
+4. Usuarios de avaliacao criados pela migration `V8`.
+5. Login funcionando para `ORGANIZADOR`, `CLIENTE` e `PORTARIA`.
+6. Busca TMDb funcionando.
+7. Busca Ticketmaster funcionando.
+8. Evento geral criado e publicado.
+9. Evento com assentos criado e publicado.
+10. Filtros e paginacao em `/api/eventos/buscar` funcionando.
+11. Reserva geral criada.
+12. Reserva com assento criada.
+13. PaymentIntent criado.
+14. Stripe CLI encaminhando webhook com `[200]`.
+15. Reserva aprovada virando `PAGA`.
+16. Ingresso gerado.
+17. Compartilhamento publico funcionando.
+18. Portaria retornando `VALIDO`, `JA_UTILIZADO`, `EVENTO_ERRADO` e `INVALIDO`.
+19. Cancelamento de evento devolvendo estoque.
+20. Testes passando com `.\mvnw.cmd test`.
