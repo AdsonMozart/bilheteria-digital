@@ -6,12 +6,14 @@ import br.com.mozart.bilheteria_digital.assento.repository.AssentoRepository;
 import br.com.mozart.bilheteria_digital.evento.domain.Evento;
 import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
 import br.com.mozart.bilheteria_digital.reserva.domain.Reserva;
+import br.com.mozart.bilheteria_digital.reserva.domain.StatusReserva;
 import br.com.mozart.bilheteria_digital.reserva.dto.CriarReservaRequest;
 import br.com.mozart.bilheteria_digital.reserva.dto.ReservaResponse;
 import br.com.mozart.bilheteria_digital.reserva.repository.ReservaRepository;
 import br.com.mozart.bilheteria_digital.reservaassento.domain.ReservaAssento;
 import br.com.mozart.bilheteria_digital.reservaassento.repository.ReservaAssentoRepository;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -147,5 +149,34 @@ public class ReservaService {
                 .stream()
                 .map(ReservaResponse::from)
                 .toList();
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void expirarReservasVencidas() {
+        List<Reserva> reservasVencidas = reservaRepository.findByStatusAndValidadeBefore(
+                StatusReserva.PENDENTE,
+                LocalDateTime.now()
+        );
+
+        for (Reserva reserva : reservasVencidas) {
+            reserva.expirarValidade();
+            liberarEstoqueDaReserva(reserva);
+        }
+    }
+
+    private void liberarEstoqueDaReserva(Reserva reserva) {
+        if (reserva.getEvento().possuiAssentos()) {
+            assentoRepository.liberarAssentosDaReserva(
+                    reserva.getId(),
+                    StatusAssento.DISPONIVEL
+            );
+            return;
+        }
+
+        eventoRepository.liberarCapacidadeGeral(
+                reserva.getEvento().getId(),
+                reserva.getQuantidade()
+        );
     }
 }

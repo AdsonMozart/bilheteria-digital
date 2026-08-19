@@ -4,8 +4,10 @@ import br.com.mozart.bilheteria_digital.auth.dto.AuthResponse;
 import br.com.mozart.bilheteria_digital.auth.dto.LoginRequest;
 import br.com.mozart.bilheteria_digital.auth.dto.RegistroRequest;
 import br.com.mozart.bilheteria_digital.auth.service.AuthService;
-import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
-import org.apache.coyote.Response;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Autenticacao", description = "Cadastro e login de usuarios")
 public class AuthController {
 
     private final AuthService authService;
@@ -23,12 +26,14 @@ public class AuthController {
     }
 
     @PostMapping("/registrar")
-    public ResponseEntity<AuthResponse> registrar(@RequestBody RegistroRequest request) {
-        return ResponseEntity.ok(authService.registrar(request));
+    @Operation(summary = "Cadastrar cliente")
+    public ResponseEntity<AuthResponse> registrar(@Valid @RequestBody RegistroRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(request));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+    @Operation(summary = "Autenticar usuario")
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 }
