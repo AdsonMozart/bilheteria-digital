@@ -6,8 +6,8 @@
     environment:
       MYSQL_DATABASE: ${DB_NAME:-bilheteria_digital}
       MYSQL_USER: ${DB_USERNAME:-bilheteria_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-bilheteria_password}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-bilheteria_root_password}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-102030}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-13579}
     command: --default-time-zone=-03:00
     ports:
       - "3306:3306"
