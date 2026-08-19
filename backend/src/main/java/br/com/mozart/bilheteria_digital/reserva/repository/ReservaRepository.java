@@ -5,6 +5,7 @@ import br.com.mozart.bilheteria_digital.reserva.domain.StatusReserva;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -15,5 +16,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     List<Reserva> findByEvento_Id(Long eventoId);
 
     List<Reserva> findByStatus(StatusReserva status);
+
+    List<Reserva> findByStatusAndValidadeBefore(StatusReserva status, LocalDateTime validade);
 
 }

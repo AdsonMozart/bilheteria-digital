@@ -3,6 +3,7 @@ package br.com.mozart.bilheteria_digital.evento.repository;
 import br.com.mozart.bilheteria_digital.evento.domain.Evento;
 import br.com.mozart.bilheteria_digital.evento.domain.StatusEvento;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface EventoRepository extends JpaRepository<Evento, Long> {
+public interface EventoRepository extends JpaRepository<Evento, Long>, JpaSpecificationExecutor<Evento> {
 
     List<Evento> findByStatus(StatusEvento status);
 

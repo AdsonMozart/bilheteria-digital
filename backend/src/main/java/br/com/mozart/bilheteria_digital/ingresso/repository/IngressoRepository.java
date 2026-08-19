@@ -19,6 +19,8 @@ public interface IngressoRepository extends JpaRepository<Ingresso, Long> {
 
     List<Ingresso> findByReserva_Cliente_Id(Long clientId);
 
+    List<Ingresso> findByReserva_Evento_Id(Long eventoId);
+
     Optional<Ingresso> findByCodigo(String codigo);
 
     Optional<Ingresso> findByTokenCompartilhamento(String tokenCompartilamento);
