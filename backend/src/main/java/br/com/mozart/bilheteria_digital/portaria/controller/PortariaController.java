@@ -4,6 +4,7 @@ import br.com.mozart.bilheteria_digital.portaria.dto.ValidacaoIngressoResponse;
 import br.com.mozart.bilheteria_digital.portaria.dto.ValidarIngressoRequest;
 import br.com.mozart.bilheteria_digital.portaria.service.PortariaService;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +23,7 @@ public class PortariaController {
     }
 
     @PostMapping("/validar")
-    public ResponseEntity<ValidacaoIngressoResponse> validar(@AuthenticationPrincipal Usuario usuarioPortaria, @RequestBody ValidarIngressoRequest request) {
+    public ResponseEntity<ValidacaoIngressoResponse> validar(@AuthenticationPrincipal Usuario usuarioPortaria, @Valid @RequestBody ValidarIngressoRequest request) {
         return ResponseEntity.ok(portariaService.validarIngresso(usuarioPortaria, request));
     }
 }

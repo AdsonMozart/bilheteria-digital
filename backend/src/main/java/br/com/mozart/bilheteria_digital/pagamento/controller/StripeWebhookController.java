@@ -27,21 +27,17 @@ public class StripeWebhookController {
 
     @PostMapping
     public ResponseEntity<String> receber(@RequestBody String payload, @RequestHeader("Stripe-Signature") String assinatura) {
-        try {
-            Event evento = stripeService.construirEventoWebhook(payload, assinatura);
+        Event evento = stripeService.construirEventoWebhook(payload, assinatura);
 
-            if ("payment_intent.succeeded".equals(evento.getType())) {
-                pagamentoService.aprovarPagamentoStripe(extrairPaymentIntentId(evento));
-            }
-
-            if ("payment_intent.payment_failed".equals(evento.getType())) {
-                pagamentoService.recusarPagamentoStripe(extrairPaymentIntentId(evento));
-            }
-
-            return ResponseEntity.ok("Webhook Stripe processado");
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
+        if ("payment_intent.succeeded".equals(evento.getType())) {
+            pagamentoService.aprovarPagamentoStripe(extrairPaymentIntentId(evento));
         }
+
+        if ("payment_intent.payment_failed".equals(evento.getType())) {
+            pagamentoService.recusarPagamentoStripe(extrairPaymentIntentId(evento));
+        }
+
+        return ResponseEntity.ok("Webhook Stripe processado");
     }
 
     private String extrairPaymentIntentId(Event evento) {

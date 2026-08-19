@@ -4,6 +4,7 @@ import br.com.mozart.bilheteria_digital.evento.dto.CriarEventoRequest;
 import br.com.mozart.bilheteria_digital.evento.dto.EventoResponse;
 import br.com.mozart.bilheteria_digital.evento.service.EventoService;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,7 +23,7 @@ public class OrganizadorEventoController {
     }
 
     @PostMapping
-    public ResponseEntity<EventoResponse> criar(@AuthenticationPrincipal Usuario organizador, @RequestBody CriarEventoRequest request) {
+    public ResponseEntity<EventoResponse> criar(@AuthenticationPrincipal Usuario organizador, @Valid @RequestBody CriarEventoRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(eventoService.criarEvento(organizador, request));
     }
 
