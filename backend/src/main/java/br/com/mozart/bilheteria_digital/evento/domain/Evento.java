@@ -104,16 +104,26 @@ public class Evento {
 
     // metodos atribuitivos de comportamentos para status
     public void publicar() {
+        if (this.status == StatusEvento.CANCELADO) {
+            throw new IllegalStateException("Evento cancelado nao pode ser publicado");
+        }
         this.status = StatusEvento.PUBLICADO;
     }
 
     public void cancelar() {
+        if(this.status == StatusEvento.CANCELADO) {
+            return;
+        }
         this.status = StatusEvento.CANCELADO;
     }
 
     // metodo comparativo para status
     public boolean estaPublicado() {
         return this.status == StatusEvento.PUBLICADO;
+    }
+
+    public boolean pertenceAoOrganizador(Long organizadorId) {
+        return this.organizador.getId().equals(organizadorId);
     }
 
     // metodos comparativos para tipoCapacidade
