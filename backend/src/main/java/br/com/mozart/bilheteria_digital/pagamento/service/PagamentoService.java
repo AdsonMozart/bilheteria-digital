@@ -55,6 +55,7 @@ public class PagamentoService {
 
         if (pagamento.getPagamentoStripeId() != null) {
             PaymentIntent paymentIntent = stripeService.buscarPaymentIntent(pagamento.getPagamentoStripeId());
+            reconciliarPagamentoComStripe(pagamento, paymentIntent);
 
             return new CriarPaymentIntentResponse(
                     pagamento.getId(),
@@ -194,5 +195,18 @@ public class PagamentoService {
         }
 
         return reserva;
+    }
+
+    private void reconciliarPagamentoComStripe(Pagamento pagamento, PaymentIntent paymentIntent) {
+        if ("succeeded".equals(paymentIntent.getStatus())) {
+            processarPagamentoAprovado(pagamento);
+            pagamentoRepository.save(pagamento);
+            return;
+        }
+
+        if ("requires_payment_method".equals(paymentIntent.getStatus()) && paymentIntent.getLastPaymentError() != null) {
+            processarPagamentoRecusado(pagamento);
+            pagamentoRepository.save(pagamento);
+        }
     }
 }

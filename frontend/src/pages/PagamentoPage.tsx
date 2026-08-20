@@ -34,6 +34,7 @@ export function PagamentoPage() {
 
         if (reservaAtual.status === 'PENDENTE') {
           setPaymentIntent(await pagamentosApi.paymentIntent(reservaId!))
+          setReserva(await reservasApi.buscar(reservaId!))
         }
       } catch (erro) {
         setError(getErrorMessage(erro))
@@ -68,10 +69,12 @@ export function PagamentoPage() {
 
   async function refreshReserva() {
     if (!reservaId) {
-      return
+      return null
     }
 
-    setReserva(await reservasApi.buscar(reservaId))
+    const reservaAtual = await reservasApi.buscar(reservaId)
+    setReserva(reservaAtual)
+    return reservaAtual
   }
 
   if (loading) {
@@ -135,7 +138,7 @@ export function PagamentoPage() {
 }
 
 type StripePaymentFormProps = {
-  onRefreshReserva: () => Promise<void>
+  onRefreshReserva: () => Promise<Reserva | null>
 }
 
 function StripePaymentForm({ onRefreshReserva }: StripePaymentFormProps) {
@@ -170,10 +173,10 @@ function StripePaymentForm({ onRefreshReserva }: StripePaymentFormProps) {
       return
     }
 
-    setMessage('Pagamento enviado para a Stripe. A confirmacao final sera aplicada pelo webhook.')
+    setMessage('Pagamento enviado para a Stripe. Aguardando confirmacao do webhook.')
 
     try {
-      await onRefreshReserva()
+      await aguardarAtualizacaoDaReserva(onRefreshReserva)
     } catch {
       // O webhook pode concluir alguns segundos depois; a tela de ingressos reflete o estado final.
     } finally {
@@ -193,4 +196,22 @@ function StripePaymentForm({ onRefreshReserva }: StripePaymentFormProps) {
       </button>
     </form>
   )
+}
+
+async function aguardarAtualizacaoDaReserva(onRefreshReserva: () => Promise<Reserva | null>) {
+  for (let tentativa = 0; tentativa < 8; tentativa++) {
+    const reservaAtual = await onRefreshReserva()
+
+    if (reservaAtual && reservaAtual.status !== 'PENDENTE') {
+      return
+    }
+
+    await esperar(1500)
+  }
+}
+
+function esperar(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
