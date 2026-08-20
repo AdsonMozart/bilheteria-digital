@@ -1,251 +1,286 @@
 # Bilheteria Digital
 
-Sistema de eventos e ingressos desenvolvido com backend em Java/Spring Boot, frontend em React/Vite/TypeScript e banco MySQL. A aplicacao cobre fluxos de organizador, cliente e portaria: catalogo externo, criacao de eventos, reserva por capacidade geral ou assentos, pagamento com Stripe em modo teste, emissao de ingressos com QR assinado, compartilhamento publico e validacao de entrada.
+Plataforma de eventos e ingressos criada para o Desafio Elite Dev 2026.
 
-Este README foi escrito para que uma pessoa avaliadora consiga configurar o ambiente do zero e testar as funcionalidades principais sem depender de credenciais locais do autor do projeto.
+O sistema cobre o fluxo principal pedido no desafio: um organizador cria e publica eventos, um cliente navega pelos eventos publicados, reserva ingressos por quantidade ou por mapa de assentos, paga em ambiente de teste da Stripe, recebe ingressos com QR Code, compartilha ingresso por link publico e a portaria valida a entrada.
+
+Frontend publicado:
+
+```text
+https://bilheteria-digital.vercel.app
+```
+
+Rota de login publicada:
+
+```text
+https://bilheteria-digital.vercel.app/login
+```
+
+## Sumario Para Avaliacao
+
+1. O frontend e uma SPA React/Vite publicada na Vercel.
+2. O backend e uma API Java 21/Spring Boot.
+3. O banco usado e MySQL 8, com schema e dados iniciais criados por Flyway.
+4. A autenticacao usa JWT e tres papeis: `ORGANIZADOR`, `CLIENTE` e `PORTARIA`.
+5. Os usuarios e eventos de teste sao semeados automaticamente pela migration `V8__seed_dados_avaliacao.sql`.
+6. O pagamento usa Stripe em modo teste. Localmente, o webhook depende do Stripe CLI; em producao, o webhook deve ser configurado no Dashboard da Stripe.
 
 ## Tecnologias
 
+Backend:
+
 - Java 21
 - Spring Boot 4.1
-- Spring Security com JWT
+- Spring Security
+- JWT com JJWT
 - Spring Data JPA
 - Flyway
 - MySQL 8
+- Stripe Java SDK
+- Springdoc OpenAPI/Swagger
+
+Frontend:
+
 - React
 - Vite
 - TypeScript
-- Stripe em modo teste
-- TMDb API
-- Ticketmaster Discovery API
+- React Router
+- Stripe Payment Element
+- qrcode.react
+- html5-qrcode
+
+Infra local:
+
+- Docker Compose para MySQL
+- Maven Wrapper no backend
+- npm no frontend
+
+## Como O Projeto Atende Aos Requisitos
+
+| Requisito do desafio | Implementacao no projeto |
+| --- | --- |
+| Navegacao e busca por eventos publicados | Home com lista, busca por titulo, tipo, local, datas e ordenacao |
+| Criacao e gerenciamento pelo organizador | Area `/organizador` e tela `/organizador/novo` |
+| Catalogo externo de shows ou filmes | Integracoes com TMDb e Ticketmaster em `/api/catalogo` |
+| Reserva por quantidade | Eventos com `tipoCapacidade=GERAL` |
+| Reserva por mapa de assentos | Eventos com `tipoCapacidade=ASSENTOS` e componente `SeatMap` |
+| Pagamento simulado com confirmacao e recusa | Stripe test mode com `payment_intent.succeeded` e `payment_intent.payment_failed` |
+| Area de meus ingressos com QR | `/meus-ingressos` com QR Code gerado a partir da assinatura do ingresso |
+| Portaria com valido, invalido, usado ou evento errado | `/portaria` e `POST /api/portaria/validar` |
+| Leitura de QR pela camera e digitacao manual | `html5-qrcode` na tela de portaria e campo manual de codigo |
+| Autenticacao com tres papeis | JWT com roles `ORGANIZADOR`, `CLIENTE`, `PORTARIA` |
+| Armazenamento de eventos, reservas e ingressos | Tabelas `eventos`, `reservas`, `ingressos`, `pagamentos`, `assentos` |
+| Evitar venda dupla do mesmo lugar | Update condicional de assento `DISPONIVEL -> RESERVADO` |
+| QR que nao possa ser forjado | QR assinado como JWT com `JWT_SECRET` |
+| Compartilhamento por link | Token publico em `/ingressos/compartilhado/:token` |
+| Nao validar ingresso duas vezes | Update condicional `VALIDO -> USADO` na validacao |
+| Dados de teste semeados | Migration `V8__seed_dados_avaliacao.sql` |
+| Docker Compose | `docker-compose.yml` com MySQL 8 |
+| Testes | Testes de servico no backend para auth, eventos, reservas, pagamentos e portaria |
+| Deploy | Frontend publicado na Vercel |
 
 ## Arquitetura
 
-O backend segue uma arquitetura em camadas, organizada por dominios de negocio.
-
-Estrutura principal:
+O backend e organizado por dominio de negocio:
 
 ```text
 backend/src/main/java/br/com/mozart/bilheteria_digital
 |-- auth
 |-- catalogo
+|   |-- ticketmaster
+|   `-- tmdb
 |-- evento
 |-- assento
 |-- reserva
+|-- reservaassento
 |-- pagamento
+|   `-- stripe
 |-- ingresso
 |-- portaria
 |-- usuario
 `-- common
 ```
 
-Cada dominio concentra suas proprias classes de controller, service, repository, DTOs e entidades quando aplicavel. As integracoes externas ficam isoladas:
+Camadas usadas em cada dominio:
+
+- `controller`: entrada HTTP.
+- `service`: regras de negocio.
+- `repository`: acesso ao banco.
+- `domain`: entidades e enums.
+- `dto`: contratos de entrada e saida.
+
+O frontend fica em `frontend/src`:
 
 ```text
-catalogo/tmdb
-catalogo/ticketmaster
-pagamento/stripe
+components/
+context/
+pages/
+services/
+types.ts
+utils/
 ```
 
-Essa organizacao facilita a leitura do sistema por funcionalidade e evita misturar regra de negocio com detalhes de API externa.
+## Rotas Do Frontend
 
-## Protecao De Credenciais
+Estas sao as rotas mapeadas no React Router e confirmadas no bundle publicado da Vercel:
 
-Credenciais reais nao devem ser versionadas no repositorio.
+| Rota | Acesso | Finalidade |
+| --- | --- | --- |
+| `/` | Publico | Listagem, busca e filtros de eventos publicados |
+| `/eventos/:id` | Publico, mas reserva exige cliente | Detalhe do evento, reserva por quantidade ou assento |
+| `/login` | Publico | Login e botoes de preenchimento dos usuarios de teste |
+| `/cadastro` | Publico | Cadastro de novo usuario cliente |
+| `/minhas-reservas` | CLIENTE | Lista reservas do cliente |
+| `/meus-ingressos` | CLIENTE | Lista ingressos emitidos e QR Codes |
+| `/pagamento/:reservaId` | CLIENTE | Checkout Stripe da reserva |
+| `/organizador` | ORGANIZADOR | Lista eventos do organizador, publica e cancela |
+| `/organizador/novo` | ORGANIZADOR | Cria evento manualmente ou a partir de catalogo externo |
+| `/portaria` | PORTARIA | Valida ingresso por camera ou digitacao manual |
+| `/conta` | Autenticado | Mostra nome, email e perfil do usuario logado |
+| `/ingressos/compartilhado/:token` | Publico | Exibe ingresso compartilhado por link |
 
-O projeto usa variaveis de ambiente para todos os segredos e chaves externas:
+## Rotas Principais Da API
+
+| Metodo | Rota | Acesso | Finalidade |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Publico | Status da API |
+| `POST` | `/api/auth/login` | Publico | Login |
+| `POST` | `/api/auth/registrar` | Publico | Cadastro de cliente |
+| `GET` | `/api/usuarios/me` | Autenticado | Usuario logado |
+| `GET` | `/api/eventos` | Publico | Lista eventos publicados |
+| `GET` | `/api/eventos/buscar` | Publico | Busca eventos com filtros e paginacao |
+| `GET` | `/api/eventos/{id}` | Publico | Detalha evento publicado |
+| `GET` | `/api/catalogo/buscar` | ORGANIZADOR | Busca TMDb ou Ticketmaster |
+| `GET` | `/api/catalogo/{origem}/{idExterno}` | ORGANIZADOR | Detalha item externo |
+| `GET` | `/api/organizador/eventos` | ORGANIZADOR | Lista eventos do organizador |
+| `POST` | `/api/organizador/eventos` | ORGANIZADOR | Cria evento |
+| `POST` | `/api/organizador/eventos/{id}/publicar` | ORGANIZADOR | Publica evento |
+| `POST` | `/api/organizador/eventos/{id}/cancelar` | ORGANIZADOR | Cancela evento |
+| `POST` | `/api/reservas` | CLIENTE | Cria reserva |
+| `GET` | `/api/reservas/minhas` | CLIENTE | Lista reservas do cliente |
+| `GET` | `/api/reservas/{id}` | CLIENTE | Busca reserva do cliente |
+| `POST` | `/api/pagamentos/reservas/{reservaId}/payment-intent` | CLIENTE | Cria/reusa PaymentIntent |
+| `POST` | `/api/webhooks/stripe` | Stripe | Recebe webhook de pagamento |
+| `GET` | `/api/me/ingressos` | CLIENTE | Lista ingressos do cliente |
+| `GET` | `/api/ingressos/compartilhado/{token}` | Publico | Busca ingresso compartilhado |
+| `POST` | `/api/portaria/validar` | PORTARIA | Valida ingresso |
+
+## Dados De Teste
+
+A senha de todos os usuarios semeados e:
 
 ```text
-DB_USERNAME
-DB_PASSWORD
-JWT_SECRET
-APP_CORS_ALLOWED_ORIGINS
-TMDB_ACCESS_TOKEN
-TICKETMASTER_API_KEY
-STRIPE_SECRET_KEY
-STRIPE_WEBHOOK_SECRET
-VITE_API_URL
-VITE_STRIPE_PUBLISHABLE_KEY
+123456
 ```
 
-Arquivos `.env` reais sao ignorados pelo Git. O repositorio contem apenas exemplos seguros:
+Usuarios:
 
-```text
-backend/.env.example
-frontend/.env.example
-```
+| Perfil | Email | Uso |
+| --- | --- | --- |
+| ORGANIZADOR | `organizador@teste.com` | Criar, publicar e cancelar eventos |
+| CLIENTE | `cliente1@teste.com` | Reservar, pagar e ver ingressos |
+| CLIENTE | `cliente2@teste.com` | Testar concorrencia/segundo comprador |
+| PORTARIA | `portaria@teste.com` | Validar ingressos |
 
-O avaliador deve criar as proprias credenciais de teste nas plataformas externas e configura-las localmente.
+Eventos semeados:
 
-## Pre-Requisitos
+| Evento | Tipo | Capacidade |
+| --- | --- | --- |
+| `Show Teste Pista` | SHOW | Capacidade geral, 100 ingressos |
+| `Cinema Teste Assentos` | FILME | Mapa de assentos, 20 assentos |
 
-Instale os itens abaixo antes de iniciar:
+## Configuracao Local
 
-1. Java 21.
-2. Docker e Docker Compose.
-3. Node.js LTS.
-4. npm.
-5. Stripe CLI.
-6. Insomnia, Postman ou outro cliente HTTP.
-7. Conta no TMDb.
-8. Conta no Ticketmaster Developer.
-9. Conta Stripe em modo teste.
+### 1. Pre-requisitos
 
-## 1. Clonar O Projeto
+Instale:
+
+- Java 21
+- Docker e Docker Compose
+- Node.js LTS
+- npm
+- Stripe CLI
+- Conta TMDb
+- Conta Ticketmaster Developer
+- Conta Stripe em modo teste
+
+### 2. Clonar
 
 ```powershell
 git clone URL_DO_REPOSITORIO
 cd bilheteria-digital
 ```
 
-Todos os comandos a seguir consideram que o terminal esta na raiz do projeto.
-
-## 2. Subir O Banco MySQL
-
-O projeto inclui um `docker-compose.yml` com MySQL 8.
-
-Execute:
+### 3. Subir MySQL Local
 
 ```powershell
 docker compose up -d
 ```
 
-Dados locais do banco:
+Dados padrao do `docker-compose.yml`:
 
 ```text
 host: localhost
 porta: 3306
 database: bilheteria_digital
 usuario: bilheteria_user
-senha: troque-esta-senha-local
+senha: 102030
 ```
 
-As tabelas sao criadas automaticamente pelo Flyway quando o backend inicia.
+### 4. Configurar Variaveis Do Backend
 
-Para verificar se o container esta rodando:
-
-```powershell
-docker ps
-```
-
-O container esperado e:
-
-```text
-bilheteria_mysql
-```
-
-## 3. Configurar Variaveis Do Backend
-
-O arquivo `backend/.env.example` mostra quais variaveis sao necessarias. O backend carrega automaticamente um arquivo local `backend/.env`, que e ignorado pelo Git. Voce tambem pode configurar as mesmas variaveis no terminal ou na configuracao de execucao da IDE.
-
-Para usar arquivo local:
-
-```powershell
-cd backend
-Copy-Item .env.example .env
-```
-
-Depois preencha os valores no `backend/.env`.
+O backend Spring Boot nao carrega `.env` automaticamente. Configure as variaveis no terminal, na IDE ou na plataforma de deploy.
 
 No PowerShell:
 
 ```powershell
 cd backend
+$env:DB_URL="jdbc:mysql://localhost:3306/bilheteria_digital?createDatabaseIfNotExist=true&serverTimezone=America/Bahia"
 $env:DB_USERNAME="bilheteria_user"
-$env:DB_PASSWORD="defina_uma_senha_local"
+$env:DB_PASSWORD="102030"
 $env:JWT_SECRET="chave-local-com-pelo-menos-32-caracteres"
-$env:APP_CORS_ALLOWED_ORIGINS="http://localhost:5173"
-$env:TMDB_ACCESS_TOKEN="defina_o_token_tmdb"
-$env:TICKETMASTER_API_KEY="defina_a_consumer_key_ticketmaster"
+$env:APP_CORS_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+$env:TMDB_ACCESS_TOKEN="seu_token_tmdb"
+$env:TICKETMASTER_API_KEY="sua_chave_ticketmaster"
 $env:TICKETMASTER_COUNTRY_CODE="BR"
-$env:STRIPE_SECRET_KEY="defina_a_chave_secreta_de_teste_da_stripe"
+$env:STRIPE_SECRET_KEY="sk_test_sua_chave_secreta"
+$env:STRIPE_WEBHOOK_SECRET="whsec_configurado_depois_com_stripe_listen"
 ```
 
-O `STRIPE_WEBHOOK_SECRET` e configurado depois de iniciar o `stripe listen`, conforme explicado na secao de pagamentos.
-
-## 4. Obter Chaves Externas
-
-### TMDb
-
-1. Acesse o painel do TMDb.
-2. Crie ou acesse uma aplicacao.
-3. Copie o token de leitura da API, normalmente chamado de `API Read Access Token`.
-4. Configure a variavel:
-
-```powershell
-$env:TMDB_ACCESS_TOKEN="defina_o_token_tmdb"
-```
-
-Esse token e usado pelo backend como Bearer Token ao consultar filmes.
-
-### Ticketmaster
-
-1. Acesse o Ticketmaster Developer.
-2. Crie uma aplicacao.
-3. Copie a `Consumer Key`.
-4. Configure:
-
-```powershell
-$env:TICKETMASTER_API_KEY="defina_a_consumer_key_ticketmaster"
-```
-
-Por padrao, o projeto busca eventos do Brasil:
-
-```powershell
-$env:TICKETMASTER_COUNTRY_CODE="BR"
-```
-
-Para facilitar testes com mais resultados, pode ser usado:
-
-```powershell
-$env:TICKETMASTER_COUNTRY_CODE="US"
-```
-
-### Stripe
-
-1. Acesse o Dashboard da Stripe.
-2. Ative o modo de teste.
-3. Copie a chave secreta de teste.
-4. Configure:
-
-```powershell
-$env:STRIPE_SECRET_KEY="defina_a_chave_secreta_de_teste_da_stripe"
-```
-
-A chave publicavel de teste sera usada no frontend:
+Variaveis aceitas pelo backend:
 
 ```text
-VITE_STRIPE_PUBLISHABLE_KEY
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+JWT_EXPIRATION_HOURS
+APP_CORS_ALLOWED_ORIGINS
+TMDB_ACCESS_TOKEN
+TICKETMASTER_API_KEY
+TICKETMASTER_COUNTRY_CODE
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+PORT
 ```
 
-## 5. Rodar O Backend
-
-Com o MySQL rodando e as variaveis configuradas:
+### 5. Rodar Backend
 
 ```powershell
 cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-URL local:
+API local:
 
 ```text
 http://localhost:8080
 ```
 
-Teste rapido:
+Healthcheck:
 
 ```http
 GET http://localhost:8080/api/health
-```
-
-Resposta esperada:
-
-```json
-{
-  "status": "UP",
-  "service": "bilheteria-digital"
-}
 ```
 
 Swagger:
@@ -254,236 +289,248 @@ Swagger:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-## 6. Usuarios E Eventos De Avaliacao
+### 6. Configurar Frontend
 
-A migration `V8__seed_dados_avaliacao.sql` cria automaticamente usuarios e eventos de teste quando o backend inicia com o Flyway.
+Crie `frontend/.env`:
 
-A senha de todos os usuarios abaixo e:
-
-```text
-123456
+```env
+VITE_API_URL=http://localhost:8080
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_sua_chave_publicavel
 ```
 
-Usuarios disponiveis:
+Instale e rode:
 
-```text
-organizador@teste.com  ORGANIZADOR
-cliente1@teste.com     CLIENTE
-cliente2@teste.com     CLIENTE
-portaria@teste.com     PORTARIA
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-Eventos publicados criados automaticamente:
+Frontend local:
 
 ```text
-Show Teste Pista       SHOW   capacidade geral
-Cinema Teste Assentos  FILME  20 assentos disponiveis
+http://localhost:5173
 ```
 
-## 7. Testar Login Dos Perfis
+## Teste Manual Pelo Site Publicado
 
-No Insomnia, crie uma requisicao:
+Use:
+
+```text
+https://bilheteria-digital.vercel.app/login
+```
+
+Antes de testar o site publicado, confirme que o frontend da Vercel aponta para o backend correto por `VITE_API_URL` e que o backend permite CORS para:
+
+```text
+https://bilheteria-digital.vercel.app
+```
+
+No backend em producao, a variavel deve ficar sem barra final:
+
+```env
+APP_CORS_ALLOWED_ORIGINS=https://bilheteria-digital.vercel.app
+```
+
+### Fluxo 1: Login Dos Perfis
+
+1. Acesse `/login`.
+2. Clique em um perfil de teste.
+3. A senha `123456` sera preenchida.
+4. Clique em `Entrar`.
+5. Valide o redirecionamento:
+   - Organizador vai para `/organizador`.
+   - Portaria vai para `/portaria`.
+   - Cliente vai para `/`.
+
+Resultado esperado:
+
+- Login funciona.
+- Header muda conforme o perfil.
+- Rotas protegidas redirecionam usuarios sem permissao.
+
+### Fluxo 2: Navegar E Buscar Eventos
+
+1. Acesse `/`.
+2. Veja os eventos publicados.
+3. Busque por `Show`, `Cinema`, `Arena` ou `Sala`.
+4. Altere tipo para `Shows` ou `Filmes`.
+5. Use filtros laterais de data e ordenacao.
+6. Abra um evento em `/eventos/:id`.
+
+Resultado esperado:
+
+- Eventos publicados aparecem.
+- Filtros retornam resultados coerentes.
+- Detalhe mostra data, local, endereco, preco e disponibilidade.
+
+### Fluxo 3: Reserva De Capacidade Geral
+
+1. Entre como `cliente1@teste.com`.
+2. Abra o evento `Show Teste Pista`.
+3. Escolha quantidade.
+4. Clique em `Reservar agora`.
+5. A aplicacao redireciona para `/pagamento/:reservaId`.
+6. A reserva aparece em `/minhas-reservas`.
+
+Resultado esperado:
+
+- Reserva criada com status `PENDENTE`.
+- Capacidade disponivel e reduzida no backend.
+- A reserva tem validade de 15 minutos.
+
+### Fluxo 4: Reserva Com Mapa De Assentos
+
+1. Entre como `cliente1@teste.com`.
+2. Abra o evento `Cinema Teste Assentos`.
+3. Selecione um ou mais assentos disponiveis.
+4. Clique em `Reservar agora`.
+5. Confira a tela de pagamento.
+
+Resultado esperado:
+
+- Apenas assentos disponiveis podem ser selecionados.
+- Assentos reservados ou vendidos ficam indisponiveis.
+- O backend usa update condicional para impedir venda duplicada.
+
+### Fluxo 5: Criar Evento Como Organizador
+
+1. Entre como `organizador@teste.com`.
+2. Acesse `/organizador`.
+3. Clique em `Criar evento`.
+4. Opcionalmente busque no catalogo:
+   - Origem `TMDB`, busca `matrix`.
+   - Origem `TICKETMASTER`, busca `metallica`.
+5. Clique em `Usar dados` para preencher parte do formulario.
+6. Complete local, data, tipo de capacidade, preco e capacidade.
+7. Salve o evento.
+8. Na lista do organizador, clique em `Publicar`.
+
+Resultado esperado:
+
+- Evento nasce como `RASCUNHO`.
+- Evento publicado aparece na Home.
+- Se o evento for `ASSENTOS`, o backend gera assentos ao publicar.
+
+### Fluxo 6: Cancelar Evento
+
+1. Entre como `organizador@teste.com`.
+2. Acesse `/organizador`.
+3. Clique em `Cancelar` em um evento.
+
+Resultado esperado:
+
+- Evento muda para `CANCELADO`.
+- Reservas ativas sao canceladas.
+- Ingressos emitidos sao cancelados.
+- Estoque/assentos sao devolvidos quando aplicavel.
+
+### Fluxo 7: Pagamento Aprovado
+
+1. Entre como cliente.
+2. Crie uma reserva.
+3. Na tela `/pagamento/:reservaId`, preencha o Payment Element da Stripe.
+4. Use cartao de teste aprovado da Stripe:
+
+```text
+4242 4242 4242 4242
+```
+
+Use qualquer data futura, CVC e CEP validos.
+
+Resultado esperado:
+
+- Stripe confirma o PaymentIntent.
+- Webhook `payment_intent.succeeded` chega ao backend.
+- Reserva vira `PAGA`.
+- Pagamento vira `APROVADO`.
+- Ingressos sao emitidos.
+- `/meus-ingressos` mostra QR Code.
+
+### Fluxo 8: Pagamento Recusado
+
+1. Crie uma nova reserva.
+2. Use um cartao de teste recusado da Stripe, como:
+
+```text
+4000 0000 0000 0002
+```
+
+Resultado esperado:
+
+- Stripe recusa.
+- Webhook `payment_intent.payment_failed` chega ao backend.
+- Reserva vira `RECUSADA`.
+- Estoque ou assento e liberado.
+
+### Fluxo 9: Meus Ingressos E Compartilhamento
+
+1. Finalize um pagamento aprovado.
+2. Acesse `/meus-ingressos`.
+3. Veja o QR Code e o codigo do ingresso.
+4. Clique em `Abrir link publico` ou `Copiar link`.
+5. Abra o link em uma aba anonima.
+
+Resultado esperado:
+
+- O link publico abre `/ingressos/compartilhado/:token`.
+- O ingresso compartilhado mostra dados publicos do ingresso.
+
+Observacao tecnica: a tela autenticada de meus ingressos mostra o QR assinado. A tela publica de compartilhamento mostra QR com o codigo simples do ingresso, e a portaria aceita tanto a assinatura quanto o codigo simples.
+
+### Fluxo 10: Validacao Da Portaria
+
+1. Entre como `portaria@teste.com`.
+2. Acesse `/portaria`.
+3. Escolha o evento.
+4. Leia o QR pela camera ou cole manualmente o codigo.
+5. Clique em `Validar codigo`.
+
+Resultados esperados:
+
+| Caso | Resultado |
+| --- | --- |
+| Primeiro uso do ingresso correto | `VALIDO` |
+| Repetir validacao do mesmo ingresso | `JA_UTILIZADO` |
+| Validar ingresso em outro evento | `EVENTO_ERRADO` |
+| Codigo inexistente/invalido | `INVALIDO` |
+
+## Teste Manual Pela API
+
+Use `http://localhost:8080` localmente ou a URL do backend publicado.
+
+### Healthcheck
 
 ```http
-POST http://localhost:8080/api/auth/login
+GET /api/health
+```
+
+### Login
+
+```http
+POST /api/auth/login
 Content-Type: application/json
-```
 
-Body para organizador:
-
-```json
-{
-  "email": "organizador@teste.com",
-  "senha": "123456"
-}
-```
-
-Body para cliente:
-
-```json
 {
   "email": "cliente1@teste.com",
   "senha": "123456"
 }
 ```
 
-Body para portaria:
-
-```json
-{
-  "email": "portaria@teste.com",
-  "senha": "123456"
-}
-```
-
 Resposta esperada:
 
 ```json
 {
-  "token": "JWT_GERADO_PELO_BACKEND"
+  "token": "JWT_GERADO"
 }
 ```
 
-Guarde um token para cada perfil. Nas proximas requisicoes protegidas, use `Auth > Bearer Token` no Insomnia.
+Use esse token como Bearer nas rotas protegidas.
 
-## 8. Testar Catalogo TMDb
-
-Use o token do organizador.
-
-Buscar filmes:
+### Buscar Eventos
 
 ```http
-GET http://localhost:8080/api/catalogo/buscar?origem=TMDB&q=matrix
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-Resposta esperada:
-
-```json
-[
-  {
-    "origem": "TMDB",
-    "idExterno": "603",
-    "titulo": "Matrix",
-    "tipo": "FILME",
-    "descricao": "...",
-    "urlImagem": "https://image.tmdb.org/t/p/w500/...",
-    "dataLancamento": "1999-03-31",
-    "avaliacao": 8.2,
-    "totalVotos": 26000
-  }
-]
-```
-
-Detalhar filme:
-
-```http
-GET http://localhost:8080/api/catalogo/TMDB/603
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-## 9. Testar Catalogo Ticketmaster
-
-Use o token do organizador.
-
-Buscar shows:
-
-```http
-GET http://localhost:8080/api/catalogo/buscar?origem=TICKETMASTER&q=metallica
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-Detalhar um show:
-
-```http
-GET http://localhost:8080/api/catalogo/TICKETMASTER/ID_EXTERNO
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-O `ID_EXTERNO` deve ser copiado da resposta da busca.
-
-## 10. Criar Evento De Capacidade Geral
-
-Use o token do organizador.
-
-```http
-POST http://localhost:8080/api/organizador/eventos
-Authorization: Bearer TOKEN_ORGANIZADOR
-Content-Type: application/json
-```
-
-Body:
-
-```json
-{
-  "origemExterna": "MANUAL",
-  "idExterno": null,
-  "titulo": "Show Teste Pista",
-  "tipo": "SHOW",
-  "descricao": "Evento de teste com capacidade geral.",
-  "urlImagem": null,
-  "nomeLocal": "Arena Teste",
-  "enderecoLocal": "Rua Exemplo, 100",
-  "dataHora": "2026-12-20T20:00:00",
-  "tipoCapacidade": "GERAL",
-  "preco": 50.00,
-  "capacidade": 100
-}
-```
-
-Resposta esperada: status HTTP `201 Created` e um objeto de evento com `status` igual a `RASCUNHO`.
-
-Guarde o `id` retornado.
-
-Publique o evento:
-
-```http
-POST http://localhost:8080/api/organizador/eventos/ID_EVENTO/publicar
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-Resposta esperada: evento com `status` igual a `PUBLICADO`.
-
-## 11. Criar Evento Com Assentos
-
-Use o token do organizador.
-
-```http
-POST http://localhost:8080/api/organizador/eventos
-Authorization: Bearer TOKEN_ORGANIZADOR
-Content-Type: application/json
-```
-
-Body:
-
-```json
-{
-  "origemExterna": "MANUAL",
-  "idExterno": null,
-  "titulo": "Cinema Teste Assentos",
-  "tipo": "FILME",
-  "descricao": "Evento de teste com mapa de assentos.",
-  "urlImagem": null,
-  "nomeLocal": "Sala Teste",
-  "enderecoLocal": "Shopping Exemplo",
-  "dataHora": "2026-12-21T19:30:00",
-  "tipoCapacidade": "ASSENTOS",
-  "preco": 35.00,
-  "capacidade": 30
-}
-```
-
-Publique o evento:
-
-```http
-POST http://localhost:8080/api/organizador/eventos/ID_EVENTO/publicar
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-Ao publicar um evento `ASSENTOS`, o backend gera os assentos automaticamente.
-
-Consulte o detalhe publico:
-
-```http
-GET http://localhost:8080/api/eventos/ID_EVENTO
-```
-
-A resposta deve conter a lista `assentos`.
-
-## 12. Listar Eventos Publicados
-
-Rota publica:
-
-```http
-GET http://localhost:8080/api/eventos
-```
-
-Resposta esperada: lista com os eventos publicados.
-
-Buscar eventos com filtros e paginacao:
-
-```http
-GET http://localhost:8080/api/eventos/buscar?page=0&size=10&sort=dataHora,asc
+GET /api/eventos/buscar?titulo=teste&page=0&size=10&sort=dataHora,asc
 ```
 
 Filtros disponiveis:
@@ -498,34 +545,17 @@ organizadorId
 page
 size
 sort=dataHora,asc
+sort=preco,asc
 sort=preco,desc
 ```
 
-Exemplo:
+### Criar Reserva Geral
 
 ```http
-GET http://localhost:8080/api/eventos/buscar?titulo=teste&tipo=SHOW&local=arena&page=0&size=5&sort=preco,desc
-```
-
-Detalhar um evento:
-
-```http
-GET http://localhost:8080/api/eventos/ID_EVENTO
-```
-
-## 13. Criar Reserva De Capacidade Geral
-
-Use o token do cliente.
-
-```http
-POST http://localhost:8080/api/reservas
+POST /api/reservas
 Authorization: Bearer TOKEN_CLIENTE
 Content-Type: application/json
-```
 
-Body:
-
-```json
 {
   "eventoId": ID_EVENTO_GERAL,
   "quantidade": 1,
@@ -533,37 +563,13 @@ Body:
 }
 ```
 
-Resposta esperada: status HTTP `201 Created` e reserva com `status` igual a `PENDENTE`.
-
-Guarde o `id` da reserva.
-
-## 14. Criar Reserva Com Assentos
-
-Use o token do cliente.
-
-Primeiro consulte o detalhe do evento com assentos:
+### Criar Reserva Com Assento
 
 ```http
-GET http://localhost:8080/api/eventos/ID_EVENTO_ASSENTOS
-```
-
-Escolha um assento com:
-
-```json
-"status": "DISPONIVEL"
-```
-
-Depois crie a reserva:
-
-```http
-POST http://localhost:8080/api/reservas
+POST /api/reservas
 Authorization: Bearer TOKEN_CLIENTE
 Content-Type: application/json
-```
 
-Body:
-
-```json
 {
   "eventoId": ID_EVENTO_ASSENTOS,
   "quantidade": null,
@@ -571,43 +577,10 @@ Body:
 }
 ```
 
-Resposta esperada: reserva `PENDENTE`.
-
-## 15. Configurar Webhook Stripe Local
-
-O pagamento real depende de webhook. Abra um segundo terminal e execute:
-
-```powershell
-stripe login
-```
-
-Depois:
-
-```powershell
-stripe listen --events payment_intent.succeeded,payment_intent.payment_failed --forward-to localhost:8080/api/webhooks/stripe
-```
-
-O Stripe CLI exibira um segredo de webhook. Configure esse valor no terminal do backend:
-
-```powershell
-$env:STRIPE_WEBHOOK_SECRET="defina_o_webhook_secret_mostrado_pelo_stripe_listen"
-```
-
-O backend precisa ser reiniciado depois que essa variavel for configurada.
-
-Ao testar pagamento, mantenha dois terminais abertos:
-
-```text
-Terminal 1: backend Spring Boot
-Terminal 2: stripe listen
-```
-
-## 16. Criar PaymentIntent
-
-Use uma reserva `PENDENTE` criada pelo cliente.
+### Criar PaymentIntent
 
 ```http
-POST http://localhost:8080/api/pagamentos/reservas/ID_RESERVA/payment-intent
+POST /api/pagamentos/reservas/ID_RESERVA/payment-intent
 Authorization: Bearer TOKEN_CLIENTE
 ```
 
@@ -622,312 +595,54 @@ Resposta esperada:
 }
 ```
 
-Guarde o `stripePaymentIntentId`.
-
-## 17. Confirmar Pagamento Aprovado
-
-No terminal, confirme o PaymentIntent:
-
-```powershell
-stripe payment_intents confirm pi_ID_RETORNADO --payment-method pm_card_visa --return-url http://localhost:5173/pagamento/sucesso
-```
-
-No terminal do `stripe listen`, o resultado esperado e:
-
-```text
---> payment_intent.succeeded
-<-- [200] POST http://localhost:8080/api/webhooks/stripe
-```
-
-Depois consulte a reserva:
+### Validar Ingresso
 
 ```http
-GET http://localhost:8080/api/reservas/ID_RESERVA
-Authorization: Bearer TOKEN_CLIENTE
-```
-
-Status esperado:
-
-```text
-PAGA
-```
-
-Consulte os ingressos:
-
-```http
-GET http://localhost:8080/api/me/ingressos
-Authorization: Bearer TOKEN_CLIENTE
-```
-
-A resposta deve conter ingresso com `status` igual a `VALIDO`.
-
-## 18. Confirmar Pagamento Recusado
-
-Crie uma nova reserva e um novo PaymentIntent.
-
-Confirme com metodo recusado:
-
-```powershell
-stripe payment_intents confirm pi_ID_RETORNADO --payment-method pm_card_chargeDeclined --return-url http://localhost:5173/pagamento/erro
-```
-
-No terminal do `stripe listen`, o resultado esperado e:
-
-```text
---> payment_intent.payment_failed
-<-- [200] POST http://localhost:8080/api/webhooks/stripe
-```
-
-Depois consulte a reserva:
-
-```http
-GET http://localhost:8080/api/reservas/ID_RESERVA
-Authorization: Bearer TOKEN_CLIENTE
-```
-
-Status esperado:
-
-```text
-RECUSADA
-```
-
-## 19. Testar Compartilhamento Publico Do Ingresso
-
-Depois de um pagamento aprovado, liste os ingressos do cliente:
-
-```http
-GET http://localhost:8080/api/me/ingressos
-Authorization: Bearer TOKEN_CLIENTE
-```
-
-Copie o campo:
-
-```text
-tokenCompartilhamento
-```
-
-Acesse a rota publica:
-
-```http
-GET http://localhost:8080/api/ingressos/compartilhado/TOKEN_COMPARTILHAMENTO
-```
-
-Essa rota nao exige JWT.
-
-Resposta esperada: dados publicos do ingresso, sem expor a assinatura crua do QR.
-
-## 20. Testar Validacao Da Portaria
-
-Use o token do usuario portaria.
-
-Liste os ingressos como cliente e copie o campo:
-
-```text
-assinaturaQr
-```
-
-Esse campo representa o conteudo assinado que seria colocado no QR Code.
-
-Valide na portaria:
-
-```http
-POST http://localhost:8080/api/portaria/validar
+POST /api/portaria/validar
 Authorization: Bearer TOKEN_PORTARIA
 Content-Type: application/json
-```
 
-Body:
-
-```json
 {
-  "eventoId": ID_EVENTO_DO_INGRESSO,
-  "codigo": "ASSINATURA_QR_DO_INGRESSO"
+  "eventoId": ID_EVENTO,
+  "codigo": "CODIGO_OU_ASSINATURA_QR"
 }
 ```
 
-Primeira validacao esperada:
+## Stripe Local
 
-```json
-{
-  "resultado": "VALIDO",
-  "mensagem": "Ingresso validado com sucesso"
-}
-```
-
-Repita a mesma chamada.
-
-Segunda validacao esperada:
-
-```json
-{
-  "resultado": "JA_UTILIZADO",
-  "mensagem": "Ingresso ja utilizado"
-}
-```
-
-Teste tambem um evento errado:
-
-```json
-{
-  "eventoId": ID_DE_OUTRO_EVENTO,
-  "codigo": "ASSINATURA_QR_DO_INGRESSO"
-}
-```
-
-Resultado esperado:
-
-```text
-EVENTO_ERRADO
-```
-
-Teste tambem um codigo invalido:
-
-```json
-{
-  "eventoId": ID_EVENTO_DO_INGRESSO,
-  "codigo": "codigo-invalido"
-}
-```
-
-Resultado esperado:
-
-```text
-INVALIDO
-```
-
-## 21. Testar Cancelamento Com Devolucao Ao Estoque
-
-Use o token do organizador.
-
-```http
-POST http://localhost:8080/api/organizador/eventos/ID_EVENTO/cancelar
-Authorization: Bearer TOKEN_ORGANIZADOR
-```
-
-Comportamento esperado:
-
-- O evento vira `CANCELADO`.
-- Reservas ativas do evento viram `CANCELADA`.
-- Ingressos emitidos do evento viram `CANCELADO`.
-- Capacidade geral ou assentos vinculados sao liberados.
-
-## 22. Expiracao Automatica De Reservas
-
-Reservas pendentes expiram automaticamente. O backend verifica reservas vencidas a cada 60 segundos.
-
-Comportamento esperado:
-
-- Reserva `PENDENTE` vencida vira `EXPIRADA`.
-- Evento de capacidade geral tem estoque devolvido.
-- Evento com assentos tem os assentos liberados.
-
-## 23. Rodar O Frontend
-
-Crie o arquivo local:
-
-```text
-frontend/.env
-```
-
-Conteudo:
-
-```env
-VITE_API_URL=http://localhost:8080
-VITE_STRIPE_PUBLISHABLE_KEY=defina_a_chave_publicavel_de_teste_da_stripe
-```
-
-Instale dependencias e inicie:
+Em desenvolvimento local, o backend nao recebe webhooks da Stripe sozinho. Use Stripe CLI:
 
 ```powershell
-cd frontend
-npm install
-npm run dev
+stripe login
+stripe listen --events payment_intent.succeeded,payment_intent.payment_failed --forward-to localhost:8080/api/webhooks/stripe
 ```
 
-URL local:
+O comando retorna um segredo parecido com:
 
 ```text
-http://localhost:5173
+whsec_...
 ```
 
-## 24. Status HTTP Esperados
+Configure esse valor no backend e reinicie:
 
-Principais retornos:
-
-- `200 OK`: consultas, login, publicacao/cancelamento e operacoes processadas.
-- `201 Created`: cadastro, criacao de evento, criacao de reserva, criacao de pagamento e criacao de PaymentIntent.
-- `400 Bad Request`: request invalido ou regra de negocio violada.
-- `401 Unauthorized`: ausencia ou invalidade do JWT em rota protegida.
-- `403 Forbidden`: usuario autenticado sem permissao para a rota.
-- `404 Not Found`: recurso nao encontrado.
-- `409 Conflict`: conflito de estado ou dados.
-
-Resposta padrao de erro:
-
-```json
-{
-  "timestamp": "2026-08-19T19:00:00",
-  "status": 400,
-  "erro": "Requisicao invalida",
-  "mensagem": "Mensagem do erro",
-  "path": "/api/exemplo",
-  "campos": null
-}
+```powershell
+$env:STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
-## 25. Configuracao Para Producao
-
-O backend possui profile `prod`.
-
-Variaveis principais:
-
-```text
-SPRING_PROFILES_ACTIVE=prod
-DB_URL=jdbc:mysql://HOST:PORTA/DATABASE
-DB_USERNAME=usuario
-DB_PASSWORD=senha
-JWT_SECRET=chave-com-pelo-menos-32-caracteres
-APP_CORS_ALLOWED_ORIGINS=https://seu-frontend.vercel.app
-TMDB_ACCESS_TOKEN=token_tmdb
-TICKETMASTER_API_KEY=chave_ticketmaster
-STRIPE_SECRET_KEY=defina_a_chave_secreta_da_stripe
-STRIPE_WEBHOOK_SECRET=defina_o_webhook_secret_da_stripe
-```
-
-Em producao, configure o webhook da Stripe para:
+Em producao, nao use `stripe listen`. Configure o endpoint no Stripe Dashboard:
 
 ```text
 https://URL_DO_BACKEND/api/webhooks/stripe
 ```
 
-## 26. Estado Atual E Limitacoes Conhecidas
+Eventos necessarios:
 
-Este projeto possui backend funcional para os principais fluxos: autenticacao, catalogo externo TMDb/Ticketmaster, eventos, reservas, Stripe test mode, ingressos, compartilhamento e portaria.
+```text
+payment_intent.succeeded
+payment_intent.payment_failed
+```
 
-Pontos ainda pendentes ou limitados nesta versao:
-
-- O endpoint publico de cadastro cria apenas usuarios `CLIENTE`. Usuarios `ORGANIZADOR` e `PORTARIA` sao criados pela migration de seed para avaliacao.
-- O fluxo Stripe completo exige Stripe CLI rodando localmente para encaminhar webhooks ao backend.
-- A documentacao de deploy final deve ser preenchida quando as URLs de producao estiverem disponiveis.
-
-## 27. Testes Do Backend
-
-Foram adicionados testes basicos para:
-
-- login e cadastro;
-- permissoes por perfil;
-- criacao, publicacao e cancelamento de eventos;
-- reserva geral;
-- reserva por assento;
-- expiracao automatica;
-- pagamento aprovado e recusado;
-- validacao da portaria.
-
-## 28. Uso De IA
-
-Durante o desenvolvimento, ferramentas de IA foram usadas como apoio para revisao de requisitos, organizacao de tarefas, sugestao de testes e apoio na escrita de partes do backend. As decisoes de regra de negocio, nomes finais, validacao manual e testes foram revisados no proprio projeto.
-
-## 29. Comandos Uteis
+## Testes Automatizados
 
 Rodar testes do backend:
 
@@ -936,53 +651,172 @@ cd backend
 .\mvnw.cmd test
 ```
 
-Gerar o `.jar` do backend:
+Cenarios cobertos:
 
-```powershell
-cd backend
-.\mvnw.cmd package
+- Cadastro e login.
+- Montagem de permissao JWT por perfil.
+- Criacao de evento como rascunho.
+- Publicacao de evento e geracao de assentos.
+- Cancelamento de evento, reservas e ingressos.
+- Reserva por quantidade geral.
+- Reserva com assento.
+- Expiracao de reserva vencida e devolucao de estoque.
+- Reuso/idempotencia de PaymentIntent em concorrencia.
+- Pagamento aprovado gerando ingresso.
+- Pagamento recusado devolvendo estoque.
+- Protecao contra reprocessamento de pagamento aprovado/recusado.
+- Validacao de ingresso valido.
+- Validacao por codigo simples.
+- Bloqueio de segunda validacao do mesmo ingresso.
+- Evento errado.
+- Codigo invalido.
+
+Nao ha testes automatizados de frontend nesta versao; os fluxos visuais foram planejados para teste manual pelo navegador.
+
+## Deploy
+
+### Frontend Na Vercel
+
+Configuracao:
+
+```text
+Root Directory: frontend
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
 ```
 
-Limpar e testar backend:
+Variaveis:
 
-```powershell
-cd backend
-.\mvnw.cmd clean test
+```env
+VITE_API_URL=https://URL_DO_BACKEND
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
-Parar banco:
+O arquivo `frontend/vercel.json` redireciona todas as rotas para `index.html`, permitindo refresh direto em rotas como `/login`, `/organizador` e `/portaria`.
+
+### Backend No Railway
+
+Configuracoes recomendadas:
+
+Se o Railway usa a raiz do repositorio:
+
+```bash
+cd backend && ./mvnw clean package -DskipTests
+cd backend && java -jar target/bilheteria-digital-0.0.1-SNAPSHOT.jar
+```
+
+Se o Railway usa `backend` como root directory:
+
+```bash
+./mvnw clean package -DskipTests
+java -jar target/bilheteria-digital-0.0.1-SNAPSHOT.jar
+```
+
+Variaveis:
+
+```env
+SPRING_PROFILES_ACTIVE=prod
+NIXPACKS_JDK_VERSION=21
+PORT=8080
+DB_URL=jdbc:mysql://HOST:PORT/DATABASE?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Bahia
+DB_USERNAME=USUARIO
+DB_PASSWORD=SENHA
+JWT_SECRET=chave-com-pelo-menos-32-caracteres
+APP_CORS_ALLOWED_ORIGINS=https://bilheteria-digital.vercel.app
+TMDB_ACCESS_TOKEN=...
+TICKETMASTER_API_KEY=...
+TICKETMASTER_COUNTRY_CODE=BR
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Healthcheck:
+
+```text
+/api/health
+```
+
+### Banco MySQL No Railway
+
+Use um servico MySQL separado do backend. O backend deve apontar para ele por `DB_URL`, `DB_USERNAME` e `DB_PASSWORD`.
+
+Nao rode MySQL dentro do mesmo container do backend se quiser persistencia. O MySQL gerenciado do Railway persiste os dados entre deploys/restarts.
+
+## Regras De Negocio Importantes
+
+- Cadastro publico cria somente usuario `CLIENTE`.
+- Usuarios `ORGANIZADOR` e `PORTARIA` sao criados pelo seed para avaliacao.
+- Evento criado pelo organizador nasce como `RASCUNHO`.
+- Apenas eventos `PUBLICADO` aparecem nas rotas publicas.
+- Evento com assentos gera mapa ao ser publicado.
+- Reserva fica `PENDENTE` por 15 minutos.
+- Um agendamento roda a cada 60 segundos para expirar reservas vencidas.
+- Reserva vencida libera estoque ou assentos.
+- Pagamento aprovado marca reserva como `PAGA` e gera ingressos.
+- Pagamento recusado marca reserva como `RECUSADA` e libera estoque.
+- Cancelamento de evento cancela reservas e ingressos relacionados.
+- QR autenticado e assinado com o mesmo segredo JWT do backend.
+- A portaria marca o ingresso como `USADO` em update condicional para impedir dupla validacao.
+
+## Limitacoes Conhecidas
+
+- O backend nao carrega `.env` automaticamente; variaveis devem ser configuradas no terminal, IDE ou plataforma.
+- O frontend publicado depende de `VITE_API_URL` ter sido configurado antes do build na Vercel.
+- O fluxo Stripe completo exige webhook configurado. Sem webhook, o PaymentIntent pode ser confirmado na Stripe, mas a reserva nao muda para `PAGA` no sistema.
+- Em producao, a leitura por camera exige HTTPS e permissao do navegador.
+- Nao ha recuperacao de senha, envio de ingresso por email, nota fiscal, revenda ou app nativo, pois esses itens foram marcados como fora do escopo no desafio.
+- O projeto usa MySQL. Migrar para Supabase/Postgres exigiria adaptar migrations SQL, driver JDBC e tipos especificos.
+
+## Uso De IA
+
+IA foi usada como apoio para:
+
+- Interpretar o documento do desafio.
+- Planejar os fluxos de teste.
+- Revisar aderencia entre requisitos e funcionalidades.
+- Apoiar a escrita e revisao de documentacao.
+- Apoiar investigacao de deploy, CORS, Railway, Vercel e Stripe.
+
+As decisoes finais de escopo, organizacao por dominio, regras de reserva/pagamento/portaria, validacao manual e ajustes do projeto foram revisadas diretamente no codigo.
+
+## Checklist Rapido Do Avaliador
+
+1. Acessar `/login`.
+2. Entrar como organizador.
+3. Criar evento manual ou usando catalogo.
+4. Publicar evento.
+5. Sair e entrar como cliente.
+6. Buscar evento na Home.
+7. Reservar ingresso geral.
+8. Reservar assento em evento com mapa.
+9. Pagar com Stripe em modo teste.
+10. Confirmar emissao em `/meus-ingressos`.
+11. Abrir link publico do ingresso.
+12. Entrar como portaria.
+13. Validar QR/codigo.
+14. Repetir validacao para conferir `JA_UTILIZADO`.
+15. Testar evento errado e codigo invalido.
+16. Rodar `.\mvnw.cmd test` no backend.
+
+## Comandos Uteis
 
 ```powershell
+# Banco local
+docker compose up -d
 docker compose down
-```
-
-Ver logs do MySQL:
-
-```powershell
 docker logs bilheteria_mysql
+
+# Backend
+cd backend
+.\mvnw.cmd spring-boot:run
+.\mvnw.cmd test
+.\mvnw.cmd clean package -DskipTests
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+npm run build
+npm run lint
 ```
-
-## 30. Checklist De Avaliacao
-
-Para validar o sistema de ponta a ponta:
-
-1. MySQL rodando.
-2. Backend rodando em `localhost:8080`.
-3. `GET /api/health` retornando `UP`.
-4. Usuarios de avaliacao criados pela migration `V8`.
-5. Login funcionando para `ORGANIZADOR`, `CLIENTE` e `PORTARIA`.
-6. Busca TMDb funcionando.
-7. Busca Ticketmaster funcionando.
-8. Evento geral criado e publicado.
-9. Evento com assentos criado e publicado.
-10. Filtros e paginacao em `/api/eventos/buscar` funcionando.
-11. Reserva geral criada.
-12. Reserva com assento criada.
-13. PaymentIntent criado.
-14. Stripe CLI encaminhando webhook com `[200]`.
-15. Reserva aprovada virando `PAGA`.
-16. Ingresso gerado.
-17. Compartilhamento publico funcionando.
-18. Portaria retornando `VALIDO`, `JA_UTILIZADO`, `EVENTO_ERRADO` e `INVALIDO`.
-19. Cancelamento de evento devolvendo estoque.
-20. Testes passando com `.\mvnw.cmd test`.
