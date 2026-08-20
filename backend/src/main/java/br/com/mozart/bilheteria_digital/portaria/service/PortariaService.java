@@ -30,34 +30,20 @@ public class PortariaService {
 
     @Transactional
     public ValidacaoIngressoResponse validarIngresso(Usuario usuarioPortaria, ValidarIngressoRequest request) {
-        Claims claims = extrairClaims(request.codigo());
+        Ingresso ingresso = buscarIngressoPeloQr(request.codigo());
 
-        if (claims == null) {
+        if (ingresso == null) {
             return resposta(ResultadoValidacao.INVALIDO, "Ingresso invalido", null, request.eventoId(), null);
-        }
-
-        String codigo = claims.get("jti", String.class);
-        Long eventoIdAssinatura = extrairLong(claims.get("eid"));
-
-        if (codigo == null || eventoIdAssinatura == null) {
-            return resposta(ResultadoValidacao.INVALIDO, "Ingresso invalido", null, request.eventoId(), null);
-        }
-
-        Ingresso ingresso = ingressoRepository.findByCodigo(codigo)
-                .orElse(null);
-
-        if (ingresso == null || !ingresso.getAssinaturaQr().equals(request.codigo())) {
-            return resposta(ResultadoValidacao.INVALIDO, "Ingresso invalido", null, request.eventoId(), codigo);
         }
 
         Long eventoIdIngresso = ingresso.getReserva().getEvento().getId();
 
-        if (!eventoIdIngresso.equals(request.eventoId()) || !eventoIdAssinatura.equals(request.eventoId())) {
-            return resposta(ResultadoValidacao.EVENTO_ERRADO, "Ingresso pertence a outro evento", ingresso.getId(), eventoIdIngresso, codigo);
+        if (!eventoIdIngresso.equals(request.eventoId())) {
+            return resposta(ResultadoValidacao.EVENTO_ERRADO, "Ingresso pertence a outro evento", ingresso.getId(), eventoIdIngresso, ingresso.getCodigo());
         }
 
         if (!ingresso.estaValido()) {
-            return resposta(ResultadoValidacao.JA_UTILIZADO, "Ingresso ja utilizado", ingresso.getId(), eventoIdIngresso, codigo);
+            return resposta(ResultadoValidacao.JA_UTILIZADO, "Ingresso ja utilizado. Entrada nao liberada.", ingresso.getId(), eventoIdIngresso, ingresso.getCodigo());
         }
 
         int linhasAfetadas = ingressoRepository.validarIngresso(
@@ -69,10 +55,34 @@ public class PortariaService {
         );
 
         if (linhasAfetadas == 0) {
-            return resposta(ResultadoValidacao.JA_UTILIZADO, "Ingresso ja utilizado", ingresso.getId(), eventoIdIngresso, codigo);
+            return resposta(ResultadoValidacao.JA_UTILIZADO, "Ingresso ja utilizado. Entrada nao liberada.", ingresso.getId(), eventoIdIngresso, ingresso.getCodigo());
         }
 
-        return resposta(ResultadoValidacao.VALIDO, "Ingresso validado com sucesso", ingresso.getId(), eventoIdIngresso, codigo);
+        return resposta(ResultadoValidacao.VALIDO, "Entrada liberada.", ingresso.getId(), eventoIdIngresso, ingresso.getCodigo());
+    }
+
+    private Ingresso buscarIngressoPeloQr(String codigoEscaneado) {
+        Claims claims = extrairClaims(codigoEscaneado);
+
+        if (claims != null) {
+            String codigo = claims.get("jti", String.class);
+            Long eventoIdAssinatura = extrairLong(claims.get("eid"));
+
+            if (codigo == null || eventoIdAssinatura == null) {
+                return null;
+            }
+
+            Ingresso ingresso = ingressoRepository.findByCodigo(codigo).orElse(null);
+
+            if (ingresso == null || !ingresso.getAssinaturaQr().equals(codigoEscaneado)) {
+                return null;
+            }
+
+            Long eventoIdIngresso = ingresso.getReserva().getEvento().getId();
+            return eventoIdIngresso.equals(eventoIdAssinatura) ? ingresso : null;
+        }
+
+        return ingressoRepository.findByCodigo(codigoEscaneado).orElse(null);
     }
 
     private Claims extrairClaims(String codigo) {

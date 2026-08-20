@@ -7,13 +7,13 @@ import br.com.mozart.bilheteria_digital.ingresso.service.IngressoService;
 import br.com.mozart.bilheteria_digital.pagamento.domain.Pagamento;
 import br.com.mozart.bilheteria_digital.pagamento.domain.StatusPagamento;
 import br.com.mozart.bilheteria_digital.pagamento.dto.CriarPaymentIntentResponse;
-import br.com.mozart.bilheteria_digital.pagamento.dto.PagamentoResponse;
 import br.com.mozart.bilheteria_digital.pagamento.repository.PagamentoRepository;
 import br.com.mozart.bilheteria_digital.pagamento.stripe.StripeService;
 import br.com.mozart.bilheteria_digital.reserva.domain.Reserva;
 import br.com.mozart.bilheteria_digital.reserva.repository.ReservaRepository;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
 import com.stripe.model.PaymentIntent;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,23 +44,6 @@ public class PagamentoService {
     }
 
     @Transactional
-    public PagamentoResponse criarPagamento(Usuario cliente, Long reservaId) {
-        Reserva reserva = buscarReservaDoCliente(cliente, reservaId);
-
-        if(!reserva.estaPendente()) {
-            throw new IllegalArgumentException("Reserva nao esta pendente");
-        }
-
-        pagamentoRepository.findByReserva_Id(reservaId).ifPresent(pagamento -> {
-            throw new IllegalArgumentException("Pagamento ja existe para esta reserva");
-        });
-
-        Pagamento pagamento = new Pagamento(reserva, reserva.getValorTotal());
-
-        return PagamentoResponse.from(pagamentoRepository.save(pagamento));
-    }
-
-    @Transactional
     public CriarPaymentIntentResponse criarPaymentIntent(Usuario cliente, Long reservaId) {
         Reserva reserva = buscarReservaDoCliente(cliente, reservaId);
 
@@ -68,11 +51,17 @@ public class PagamentoService {
             throw new IllegalArgumentException("Reserva nao esta pendente");
         }
 
-        Pagamento pagamento = pagamentoRepository.findByReserva_Id(reservaId)
-                .orElseGet(() -> pagamentoRepository.save(new Pagamento(reserva, reserva.getValorTotal())));
+        Pagamento pagamento = buscarOuCriarPagamento(reserva);
 
         if (pagamento.getPagamentoStripeId() != null) {
-            throw new IllegalArgumentException("PaymentIntent ja existe para esta reserva");
+            PaymentIntent paymentIntent = stripeService.buscarPaymentIntent(pagamento.getPagamentoStripeId());
+
+            return new CriarPaymentIntentResponse(
+                    pagamento.getId(),
+                    reserva.getId(),
+                    paymentIntent.getId(),
+                    paymentIntent.getClientSecret()
+            );
         }
 
         PaymentIntent paymentIntent = stripeService.criarPaymentIntent(
@@ -89,24 +78,6 @@ public class PagamentoService {
                 paymentIntent.getId(),
                 paymentIntent.getClientSecret()
         );
-    }
-
-    @Transactional
-    public PagamentoResponse aprovarPagamento(Usuario cliente, Long pagamentoId) {
-        Pagamento pagamento = buscarPagamentoDoCliente(cliente, pagamentoId);
-
-        processarPagamentoAprovado(pagamento);
-
-        return PagamentoResponse.from(pagamentoRepository.save(pagamento));
-    }
-
-    @Transactional
-    public PagamentoResponse recusarPagamento(Usuario cliente, Long pagamentoId) {
-        Pagamento pagamento = buscarPagamentoDoCliente(cliente, pagamentoId);
-
-        processarPagamentoRecusado(pagamento);
-
-        return PagamentoResponse.from(pagamentoRepository.save(pagamento));
     }
 
     @Transactional
@@ -153,9 +124,21 @@ public class PagamentoService {
                     StatusAssento.RESERVADO,
                     StatusAssento.VENDIDO
             );
+            registrarIngressosVendidos(reserva);
         }
 
         ingressoService.gerarIngressosParaReserva(reserva);
+    }
+
+    private void registrarIngressosVendidos(Reserva reserva) {
+        int linhasAfetadas = eventoRepository.registrarIngressosVendidos(
+                reserva.getEvento().getId(),
+                reserva.getQuantidade()
+        );
+
+        if (linhasAfetadas == 0) {
+            throw new IllegalStateException("Capacidade indisponivel para registrar ingressos vendidos");
+        }
     }
 
     private void processarPagamentoRecusado(Pagamento pagamento) {
@@ -188,6 +171,20 @@ public class PagamentoService {
         }
     }
 
+    private Pagamento buscarOuCriarPagamento(Reserva reserva) {
+        return pagamentoRepository.findByReserva_Id(reserva.getId())
+                .orElseGet(() -> salvarNovoPagamentoOuBuscarExistente(reserva));
+    }
+
+    private Pagamento salvarNovoPagamentoOuBuscarExistente(Reserva reserva) {
+        try {
+            return pagamentoRepository.save(new Pagamento(reserva, reserva.getValorTotal()));
+        } catch (DataIntegrityViolationException ex) {
+            return pagamentoRepository.findByReserva_Id(reserva.getId())
+                    .orElseThrow(() -> ex);
+        }
+    }
+
     private Reserva buscarReservaDoCliente(Usuario cliente, Long reservaId) {
         Reserva reserva = reservaRepository.findById(reservaId)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva nao encontrada"));
@@ -197,17 +194,5 @@ public class PagamentoService {
         }
 
         return reserva;
-    }
-
-    @Transactional
-    private Pagamento buscarPagamentoDoCliente(Usuario cliente, Long pagamentoId) {
-        Pagamento pagamento = pagamentoRepository.findById(pagamentoId)
-                .orElseThrow(() -> new IllegalArgumentException("Pagamento nao encontrado"));
-
-        if (!pagamento.getReserva().pertenceAoCliente(cliente.getId())) {
-            throw new IllegalArgumentException("Pagamento nao pertence ao cliente logado");
-        }
-
-        return pagamento;
     }
 }

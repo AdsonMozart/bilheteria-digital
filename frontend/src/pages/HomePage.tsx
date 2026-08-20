@@ -3,6 +3,7 @@ import { EventCard } from '../components/EventCard'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { eventosApi, getErrorMessage } from '../services/api'
 import type { EventoResumo } from '../types'
+import { formatCurrency } from '../utils/format'
 
 type Filters = {
   titulo: string
@@ -51,6 +52,15 @@ export function HomePage() {
   }, [])
 
   const destaques = useMemo(() => eventos.slice(0, 3), [eventos])
+  const totalVendidos = useMemo(() => eventos.reduce((total, evento) => total + evento.capacidadeVendida, 0), [eventos])
+  const totalCapacidade = useMemo(() => eventos.reduce((total, evento) => total + evento.capacidade, 0), [eventos])
+  const menorPreco = useMemo(() => {
+    if (eventos.length === 0) {
+      return 0
+    }
+
+    return Math.min(...eventos.map((evento) => evento.preco))
+  }, [eventos])
 
   async function loadEventos(params: Filters) {
     setLoading(true)
@@ -88,9 +98,9 @@ export function HomePage() {
     <main>
       <section className="hero-search">
         <div className="hero-copy">
-          <span className="eyebrow">Eventos e ingressos</span>
-          <h1>Encontre seu proximo evento</h1>
-          <p>Shows, filmes e experiencias publicadas pelos organizadores.</p>
+          <span className="eyebrow">MozarTickets 01 - tempo real</span>
+          <h1>Bilhetes que colocam sua noite</h1>
+          <p>Busque shows, filmes e experiencias publicadas pelos organizadores com leitura clara de data, local e preco.</p>
         </div>
 
         <form className="search-panel" onSubmit={handleSearch}>
@@ -111,6 +121,26 @@ export function HomePage() {
           />
           <button type="submit">Buscar</button>
         </form>
+
+        <div className="hero-console-wrap" aria-hidden="true">
+          <div className="hero-console-shadow" />
+          <div className="hero-console">
+            <div className="hero-console-inner">
+              <div className="console-status">
+                <span>Operacao ao vivo</span>
+                <span>{eventos.length} eventos monitorados</span>
+              </div>
+              <div className="console-copy">
+                <p>Tudo em movimento, sem perder nenhum acesso.</p>
+                <div className="metric-chip-row">
+                  <span className="metric-chip">{totalVendidos} ingressos vendidos</span>
+                  <span className="metric-chip">{totalCapacidade} lugares mapeados</span>
+                  <span className="metric-chip">A partir de {formatCurrency(menorPreco)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="page-section">
@@ -119,6 +149,43 @@ export function HomePage() {
             <span className="eyebrow">Em destaque</span>
             <h2>Eventos publicados</h2>
           </div>
+        </div>
+
+        <div className="product-mosaic">
+          <article className="product-frame">
+            <span className="section-icon">01</span>
+            <h3>Vendas no pulso</h3>
+            <p>Acompanhe disponibilidade, preco e ocupacao de cada evento publicado.</p>
+            <div className="mini-sales-row mini-sales-row-hot">
+              <span>Ingressos vendidos</span>
+              <strong>{totalVendidos}</strong>
+            </div>
+            <div className="mini-sales-row">
+              <span>Capacidade total</span>
+              <strong>{totalCapacidade}</strong>
+            </div>
+          </article>
+
+          <article className="product-frame">
+            <span className="section-icon">02</span>
+            <h3>Publico real</h3>
+            <p>Eventos, reservas, ingressos e portaria continuam operando pelos mesmos fluxos do sistema.</p>
+            <div className="checkline">Busca por shows e filmes</div>
+            <div className="checkline">Reserva com mapa de assentos</div>
+            <div className="checkline">Validacao por QR Code</div>
+          </article>
+
+          <article className="product-frame mosaic-tall">
+            <span className="section-icon">03</span>
+            <h3>Entrada sem friccao</h3>
+            <p>Portaria com camera, codigo manual e retorno visual claro para valido, invalido, usado ou evento errado.</p>
+          </article>
+
+          <article className="product-frame mosaic-wide">
+            <span className="section-icon">04</span>
+            <h3>Sessoes e lotes</h3>
+            <p>O organizador cria eventos manualmente ou importa dados externos para abrir vendas em poucos passos.</p>
+          </article>
         </div>
 
         {loading && <LoadingState />}

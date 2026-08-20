@@ -9,7 +9,6 @@ import type {
   Ingresso,
   IngressoCompartilhado,
   PageResponse,
-  Pagamento,
   PaymentIntent,
   Reserva,
   ResultadoPortaria,
@@ -157,20 +156,8 @@ export const reservasApi = {
 }
 
 export const pagamentosApi = {
-  criar: (reservaId: number | string) =>
-    apiRequest<Pagamento>(`/api/pagamentos/reservas/${reservaId}`, {
-      method: 'POST',
-    }),
   paymentIntent: (reservaId: number | string) =>
     apiRequest<PaymentIntent>(`/api/pagamentos/reservas/${reservaId}/payment-intent`, {
-      method: 'POST',
-    }),
-  aprovar: (pagamentoId: number | string) =>
-    apiRequest<Pagamento>(`/api/pagamentos/${pagamentoId}/aprovar`, {
-      method: 'POST',
-    }),
-  recusar: (pagamentoId: number | string) =>
-    apiRequest<Pagamento>(`/api/pagamentos/${pagamentoId}/recusar`, {
       method: 'POST',
     }),
 }

@@ -1,5 +1,6 @@
 package br.com.mozart.bilheteria_digital.pagamento;
 
+import br.com.mozart.bilheteria_digital.assento.domain.StatusAssento;
 import br.com.mozart.bilheteria_digital.assento.repository.AssentoRepository;
 import br.com.mozart.bilheteria_digital.evento.domain.Evento;
 import br.com.mozart.bilheteria_digital.evento.domain.OrigemExterna;
@@ -9,7 +10,6 @@ import br.com.mozart.bilheteria_digital.evento.repository.EventoRepository;
 import br.com.mozart.bilheteria_digital.ingresso.service.IngressoService;
 import br.com.mozart.bilheteria_digital.pagamento.domain.Pagamento;
 import br.com.mozart.bilheteria_digital.pagamento.domain.StatusPagamento;
-import br.com.mozart.bilheteria_digital.pagamento.dto.PagamentoResponse;
 import br.com.mozart.bilheteria_digital.pagamento.repository.PagamentoRepository;
 import br.com.mozart.bilheteria_digital.pagamento.service.PagamentoService;
 import br.com.mozart.bilheteria_digital.pagamento.stripe.StripeService;
@@ -18,8 +18,10 @@ import br.com.mozart.bilheteria_digital.reserva.domain.StatusReserva;
 import br.com.mozart.bilheteria_digital.reserva.repository.ReservaRepository;
 import br.com.mozart.bilheteria_digital.usuario.domain.AcessoUsuario;
 import br.com.mozart.bilheteria_digital.usuario.domain.Usuario;
+import com.stripe.model.PaymentIntent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -53,83 +55,139 @@ class PagamentoServiceTest {
     );
 
     @Test
-    void deveAprovarPagamentoEGerarIngresso() {
+    void deveReutilizarPagamentoExistenteQuandoCriacaoConcorrenteGerarDuplicidade() {
+        Usuario cliente = novoUsuario(1L);
+        Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
+        Pagamento pagamentoExistente = novoPagamento(10L, reserva);
+        pagamentoExistente.vincularPagamentoStripe("pi_teste_existente");
+        PaymentIntent paymentIntent = mock(PaymentIntent.class);
+
+        when(reservaRepository.findById(reserva.getId())).thenReturn(Optional.of(reserva));
+        when(pagamentoRepository.findByReserva_Id(reserva.getId()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(pagamentoExistente));
+        when(pagamentoRepository.save(org.mockito.ArgumentMatchers.any(Pagamento.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate entry"));
+        when(stripeService.buscarPaymentIntent("pi_teste_existente")).thenReturn(paymentIntent);
+        when(paymentIntent.getId()).thenReturn("pi_teste_existente");
+        when(paymentIntent.getClientSecret()).thenReturn("pi_teste_existente_secret");
+
+        var response = pagamentoService.criarPaymentIntent(cliente, reserva.getId());
+
+        assertThat(response.pagamentoId()).isEqualTo(10L);
+        assertThat(response.reservaId()).isEqualTo(reserva.getId());
+        assertThat(response.stripePaymentIntentId()).isEqualTo("pi_teste_existente");
+        assertThat(response.clientSecret()).isEqualTo("pi_teste_existente_secret");
+    }
+
+    @Test
+    void deveAprovarPagamentoStripeEGerarIngresso() {
         Usuario cliente = novoUsuario(1L);
         Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
         Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_aprovado");
 
-        when(pagamentoRepository.findById(pagamento.getId())).thenReturn(Optional.of(pagamento));
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_aprovado")).thenReturn(Optional.of(pagamento));
         when(pagamentoRepository.save(pagamento)).thenReturn(pagamento);
 
-        PagamentoResponse response = pagamentoService.aprovarPagamento(cliente, pagamento.getId());
+        pagamentoService.aprovarPagamentoStripe("pi_teste_aprovado");
 
-        assertThat(response.status()).isEqualTo(StatusPagamento.APROVADO.name());
+        assertThat(pagamento.getStatus()).isEqualTo(StatusPagamento.APROVADO);
         assertThat(reserva.getStatus()).isEqualTo(StatusReserva.PAGA);
         verify(ingressoService).gerarIngressosParaReserva(reserva);
     }
 
     @Test
-    void deveRecusarPagamentoEDevolverEstoque() {
+    void deveRegistrarIngressosVendidosAoAprovarPagamentoComAssentos() {
+        Usuario cliente = novoUsuario(1L);
+        Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.ASSENTOS);
+        Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_assentos");
+
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_assentos")).thenReturn(Optional.of(pagamento));
+        when(eventoRepository.registrarIngressosVendidos(reserva.getEvento().getId(), reserva.getQuantidade()))
+                .thenReturn(1);
+        when(pagamentoRepository.save(pagamento)).thenReturn(pagamento);
+
+        pagamentoService.aprovarPagamentoStripe("pi_teste_assentos");
+
+        assertThat(pagamento.getStatus()).isEqualTo(StatusPagamento.APROVADO);
+        assertThat(reserva.getStatus()).isEqualTo(StatusReserva.PAGA);
+        verify(assentoRepository).venderAssentosDaReserva(
+                reserva.getId(),
+                StatusAssento.RESERVADO,
+                StatusAssento.VENDIDO
+        );
+        verify(eventoRepository).registrarIngressosVendidos(reserva.getEvento().getId(), reserva.getQuantidade());
+        verify(ingressoService).gerarIngressosParaReserva(reserva);
+    }
+
+    @Test
+    void deveRecusarPagamentoStripeEDevolverEstoque() {
         Usuario cliente = novoUsuario(1L);
         Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
         Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_recusado");
 
-        when(pagamentoRepository.findById(pagamento.getId())).thenReturn(Optional.of(pagamento));
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_recusado")).thenReturn(Optional.of(pagamento));
         when(pagamentoRepository.save(pagamento)).thenReturn(pagamento);
 
-        PagamentoResponse response = pagamentoService.recusarPagamento(cliente, pagamento.getId());
+        pagamentoService.recusarPagamentoStripe("pi_teste_recusado");
 
-        assertThat(response.status()).isEqualTo(StatusPagamento.RECUSADO.name());
+        assertThat(pagamento.getStatus()).isEqualTo(StatusPagamento.RECUSADO);
         assertThat(reserva.getStatus()).isEqualTo(StatusReserva.RECUSADA);
         verify(eventoRepository).liberarCapacidadeGeral(reserva.getEvento().getId(), reserva.getQuantidade());
     }
 
     @Test
-    void naoDeveReprocessarPagamentoJaAprovado() {
+    void naoDeveReprocessarPagamentoStripeJaAprovado() {
         Usuario cliente = novoUsuario(1L);
         Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
         Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_idempotente");
         pagamento.aprovar();
         reserva.marcarComoPaga();
 
-        when(pagamentoRepository.findById(pagamento.getId())).thenReturn(Optional.of(pagamento));
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_idempotente")).thenReturn(Optional.of(pagamento));
         when(pagamentoRepository.save(pagamento)).thenReturn(pagamento);
 
-        PagamentoResponse response = pagamentoService.aprovarPagamento(cliente, pagamento.getId());
+        pagamentoService.aprovarPagamentoStripe("pi_teste_idempotente");
 
-        assertThat(response.status()).isEqualTo(StatusPagamento.APROVADO.name());
+        assertThat(pagamento.getStatus()).isEqualTo(StatusPagamento.APROVADO);
         verify(ingressoService, never()).gerarIngressosParaReserva(reserva);
     }
 
     @Test
-    void naoDeveAprovarPagamentoRecusado() {
+    void naoDeveAprovarPagamentoStripeRecusado() {
         Usuario cliente = novoUsuario(1L);
         Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
         Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_recusado");
         pagamento.recusar();
         reserva.marcarComoRecusada();
 
-        when(pagamentoRepository.findById(pagamento.getId())).thenReturn(Optional.of(pagamento));
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_recusado")).thenReturn(Optional.of(pagamento));
 
-        assertThatThrownBy(() -> pagamentoService.aprovarPagamento(cliente, pagamento.getId()))
+        assertThatThrownBy(() -> pagamentoService.aprovarPagamentoStripe("pi_teste_recusado"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Pagamento recusado nao pode ser aprovado");
     }
 
     @Test
-    void naoDeveRecusarPagamentoJaRecusadoNemDevolverEstoqueDuasVezes() {
+    void naoDeveRecusarPagamentoStripeJaRecusadoNemDevolverEstoqueDuasVezes() {
         Usuario cliente = novoUsuario(1L);
         Reserva reserva = novaReserva(1L, cliente, TipoCapacidade.GERAL);
         Pagamento pagamento = novoPagamento(1L, reserva);
+        pagamento.vincularPagamentoStripe("pi_teste_ja_recusado");
         pagamento.recusar();
         reserva.marcarComoRecusada();
 
-        when(pagamentoRepository.findById(pagamento.getId())).thenReturn(Optional.of(pagamento));
+        when(pagamentoRepository.findByPagamentoStripeId("pi_teste_ja_recusado")).thenReturn(Optional.of(pagamento));
         when(pagamentoRepository.save(pagamento)).thenReturn(pagamento);
 
-        PagamentoResponse response = pagamentoService.recusarPagamento(cliente, pagamento.getId());
+        pagamentoService.recusarPagamentoStripe("pi_teste_ja_recusado");
 
-        assertThat(response.status()).isEqualTo(StatusPagamento.RECUSADO.name());
+        assertThat(pagamento.getStatus()).isEqualTo(StatusPagamento.RECUSADO);
         verify(eventoRepository, never()).liberarCapacidadeGeral(reserva.getEvento().getId(), reserva.getQuantidade());
     }
 

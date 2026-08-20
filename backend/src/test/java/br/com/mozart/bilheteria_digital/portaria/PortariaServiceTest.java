@@ -61,6 +61,47 @@ class PortariaServiceTest {
         );
 
         assertThat(response.resultado()).isEqualTo(ResultadoValidacao.VALIDO);
+        assertThat(response.mensagem()).isEqualTo("Entrada liberada.");
+    }
+
+    @Test
+    void deveValidarIngressoPagoPeloCodigoSimplesDoQrPublico() {
+        Usuario portaria = novoUsuario(3L, AcessoUsuario.PORTARIA);
+        Reserva reserva = novaReserva(1L, 10L);
+        String codigo = "codigo-publico";
+        String assinatura = gerarAssinatura(reserva.getId(), reserva.getEvento().getId(), codigo);
+        Ingresso ingresso = novoIngresso(1L, reserva, codigo, assinatura);
+
+        when(ingressoRepository.findByCodigo(codigo)).thenReturn(Optional.of(ingresso));
+        when(ingressoRepository.validarIngresso(any(), any(), any(), any(), any())).thenReturn(1);
+
+        ValidacaoIngressoResponse response = portariaService.validarIngresso(
+                portaria,
+                new ValidarIngressoRequest(reserva.getEvento().getId(), codigo)
+        );
+
+        assertThat(response.resultado()).isEqualTo(ResultadoValidacao.VALIDO);
+        assertThat(response.mensagem()).isEqualTo("Entrada liberada.");
+    }
+
+    @Test
+    void naoDeveLiberarEntradaDuasVezesParaMesmoIngresso() {
+        Usuario portaria = novoUsuario(3L, AcessoUsuario.PORTARIA);
+        Reserva reserva = novaReserva(1L, 10L);
+        String codigo = "codigo-concorrente";
+        String assinatura = gerarAssinatura(reserva.getId(), reserva.getEvento().getId(), codigo);
+        Ingresso ingresso = novoIngresso(1L, reserva, codigo, assinatura);
+
+        when(ingressoRepository.findByCodigo(codigo)).thenReturn(Optional.of(ingresso));
+        when(ingressoRepository.validarIngresso(any(), any(), any(), any(), any())).thenReturn(0);
+
+        ValidacaoIngressoResponse response = portariaService.validarIngresso(
+                portaria,
+                new ValidarIngressoRequest(reserva.getEvento().getId(), codigo)
+        );
+
+        assertThat(response.resultado()).isEqualTo(ResultadoValidacao.JA_UTILIZADO);
+        assertThat(response.mensagem()).isEqualTo("Ingresso ja utilizado. Entrada nao liberada.");
     }
 
     @Test

@@ -26,6 +26,10 @@ public class StripeService {
         if (!StringUtils.hasText(propriedades.secretKey())) {
             throw new IllegalStateException("STRIPE_SECRET_KEY nao configurada");
         }
+
+        if (!propriedades.secretKey().startsWith("sk_test_") && !propriedades.secretKey().startsWith("sk_live_")) {
+            throw new IllegalStateException("STRIPE_SECRET_KEY invalida. Use uma chave secreta da Stripe iniciada por sk_test_ ou sk_live_");
+        }
     }
 
     private Long converterParaCentavos(BigDecimal valor) {
@@ -37,18 +41,35 @@ public class StripeService {
     public PaymentIntent criarPaymentIntent(Long reservaId, BigDecimal valor) {
         validarSecretKey();
 
-        Stripe.apiKey =  propriedades.secretKey();
+        Stripe.apiKey = propriedades.secretKey();
 
         try {
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(converterParaCentavos(valor))
                     .setCurrency("brl")
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                    .setEnabled(true)
+                                    .build()
+                    )
                     .putMetadata("reservaId", String.valueOf(reservaId))
                     .build();
 
             return PaymentIntent.create(params);
         } catch (StripeException ex) {
             throw new IllegalStateException("Falha ao criar PaymentIntent na Stripe", ex);
+        }
+    }
+
+    public PaymentIntent buscarPaymentIntent(String paymentIntentId) {
+        validarSecretKey();
+
+        Stripe.apiKey = propriedades.secretKey();
+
+        try {
+            return PaymentIntent.retrieve(paymentIntentId);
+        } catch (StripeException ex) {
+            throw new IllegalStateException("Falha ao consultar PaymentIntent na Stripe", ex);
         }
     }
 

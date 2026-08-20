@@ -5,16 +5,26 @@ import { eventosApi, getErrorMessage, portariaApi } from '../services/api'
 import type { EventoResumo, ResultadoPortaria } from '../types'
 import { formatDateTime } from '../utils/format'
 
+type CameraDevice = {
+  id: string
+  label: string
+}
+
 export function PortariaPage() {
   const [eventos, setEventos] = useState<EventoResumo[]>([])
   const [eventoId, setEventoId] = useState('')
   const [codigo, setCodigo] = useState('')
   const [resultado, setResultado] = useState<ResultadoPortaria | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingCameras, setLoadingCameras] = useState(false)
   const [validating, setValidating] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
+  const [cameraStatus, setCameraStatus] = useState('Camera pronta para leitura.')
+  const [cameras, setCameras] = useState<CameraDevice[]>([])
+  const [cameraId, setCameraId] = useState('')
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const scanLockedRef = useRef(false)
 
   useEffect(() => {
     eventosApi
@@ -29,8 +39,12 @@ export function PortariaPage() {
       .finally(() => setLoading(false))
 
     return () => {
-      stopScanner()
+      void stopScanner()
     }
+  }, [])
+
+  useEffect(() => {
+    void carregarCameras()
   }, [])
 
   async function validar(event: FormEvent<HTMLFormElement>) {
@@ -56,27 +70,71 @@ export function PortariaPage() {
     }
   }
 
-  async function startScanner() {
-    setError('')
-    setResultado(null)
+  async function carregarCameras() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraStatus('Este navegador nao oferece acesso direto a camera.')
+      return
+    }
+
+    setLoadingCameras(true)
 
     try {
+      const lista = await Html5Qrcode.getCameras()
+      setCameras(lista)
+
+      if (lista.length > 0) {
+        const cameraTraseira = lista.find((camera) => /back|rear|environment|traseira/i.test(camera.label))
+        setCameraId((atual) => atual || cameraTraseira?.id || lista[0].id)
+        setCameraStatus('Selecione a camera e inicie a leitura.')
+      } else {
+        setCameraStatus('Nenhuma camera foi encontrada neste dispositivo.')
+      }
+    } catch (erro) {
+      setCameraStatus(mensagemErroCamera(erro))
+    } finally {
+      setLoadingCameras(false)
+    }
+  }
+
+  async function startScanner() {
+    if (scanning) {
+      return
+    }
+
+    setError('')
+    setResultado(null)
+    setCameraStatus('Solicitando permissao da camera...')
+    scanLockedRef.current = false
+
+    try {
+      await stopScanner()
+
       const scanner = new Html5Qrcode('qr-reader')
       scannerRef.current = scanner
       await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 260, height: 260 } },
+        cameraId || { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
         (decodedText) => {
+          if (scanLockedRef.current) {
+            return
+          }
+
+          scanLockedRef.current = true
           setCodigo(decodedText)
-          validarCodigo(decodedText)
-          stopScanner()
+          setCameraStatus('QR Code lido. Validando ingresso...')
+          void validarCodigo(decodedText).finally(() => {
+            void stopScanner()
+          })
         },
         () => undefined,
       )
       setScanning(true)
+      setCameraStatus('Camera ativa. Aponte para o QR Code do ingresso.')
     } catch (erro) {
-      setError(getErrorMessage(erro))
+      setError(mensagemErroCamera(erro))
+      setCameraStatus('Nao foi possivel iniciar a camera.')
       setScanning(false)
+      scanLockedRef.current = false
     }
   }
 
@@ -85,6 +143,7 @@ export function PortariaPage() {
     scannerRef.current = null
 
     if (!scanner) {
+      setScanning(false)
       return
     }
 
@@ -92,9 +151,15 @@ export function PortariaPage() {
       await scanner.stop()
       scanner.clear()
     } catch {
-      scanner.clear()
+      try {
+        scanner.clear()
+      } catch {
+        // Scanner may already be cleared by the browser after permission or track errors.
+      }
     } finally {
       setScanning(false)
+      scanLockedRef.current = false
+      setCameraStatus('Camera parada.')
     }
   }
 
@@ -133,9 +198,41 @@ export function PortariaPage() {
           </form>
 
           <section className="camera-panel">
-            <div id="qr-reader" />
+            <div className="camera-toolbar">
+              <label>
+                Camera
+                <select
+                  value={cameraId}
+                  onChange={(event) => setCameraId(event.target.value)}
+                  disabled={scanning || loadingCameras || cameras.length === 0}
+                >
+                  {cameras.length === 0 && <option value="">Camera padrao do dispositivo</option>}
+                  {cameras.map((camera, index) => (
+                    <option value={camera.id} key={camera.id}>
+                      {camera.label || `Camera ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="ghost-button" onClick={carregarCameras} disabled={scanning || loadingCameras}>
+                {loadingCameras ? 'Buscando...' : 'Atualizar cameras'}
+              </button>
+            </div>
+
+            <div className={scanning ? 'qr-reader-wrap qr-reader-active' : 'qr-reader-wrap'}>
+              <div id="qr-reader" />
+              {!scanning && (
+                <div className="qr-reader-placeholder">
+                  <span>QR</span>
+                  <p>{cameraStatus}</p>
+                </div>
+              )}
+            </div>
+
+            <p className={scanning ? 'camera-status camera-status-active' : 'camera-status'}>{cameraStatus}</p>
+
             <div className="split-actions">
-              <button type="button" onClick={startScanner} disabled={scanning}>
+              <button type="button" onClick={startScanner} disabled={scanning || validating || !eventoId}>
                 Abrir camera
               </button>
               <button type="button" className="ghost-button" onClick={stopScanner} disabled={!scanning}>
@@ -156,4 +253,22 @@ export function PortariaPage() {
       )}
     </main>
   )
+}
+
+function mensagemErroCamera(error: unknown) {
+  if (error instanceof DOMException) {
+    if (error.name === 'NotAllowedError') {
+      return 'Permissao de camera negada. Libere o acesso no navegador para ler QR Codes.'
+    }
+
+    if (error.name === 'NotFoundError') {
+      return 'Nenhuma camera foi encontrada neste dispositivo.'
+    }
+
+    if (error.name === 'NotReadableError') {
+      return 'A camera esta em uso por outro aplicativo ou nao pode ser acessada agora.'
+    }
+  }
+
+  return getErrorMessage(error)
 }
