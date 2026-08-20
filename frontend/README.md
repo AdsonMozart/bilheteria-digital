@@ -45,6 +45,7 @@ Perfis:
 ```text
 organizador@teste.com
 cliente1@teste.com
+cliente2@teste.com
 portaria@teste.com
 ```
 

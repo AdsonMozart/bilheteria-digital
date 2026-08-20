@@ -1,10 +1,10 @@
 package br.com.mozart.bilheteria_digital.pagamento.stripe;
 
-import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
+import com.stripe.net.RequestOptions;
 import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.stereotype.Service;
@@ -41,8 +41,6 @@ public class StripeService {
     public PaymentIntent criarPaymentIntent(Long reservaId, BigDecimal valor) {
         validarSecretKey();
 
-        Stripe.apiKey = propriedades.secretKey();
-
         try {
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(converterParaCentavos(valor))
@@ -55,7 +53,12 @@ public class StripeService {
                     .putMetadata("reservaId", String.valueOf(reservaId))
                     .build();
 
-            return PaymentIntent.create(params);
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(propriedades.secretKey())
+                    .setIdempotencyKey("payment-intent-reserva-" + reservaId)
+                    .build();
+
+            return PaymentIntent.create(params, requestOptions);
         } catch (StripeException ex) {
             throw new IllegalStateException("Falha ao criar PaymentIntent na Stripe", ex);
         }
@@ -64,10 +67,12 @@ public class StripeService {
     public PaymentIntent buscarPaymentIntent(String paymentIntentId) {
         validarSecretKey();
 
-        Stripe.apiKey = propriedades.secretKey();
-
         try {
-            return PaymentIntent.retrieve(paymentIntentId);
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(propriedades.secretKey())
+                    .build();
+
+            return PaymentIntent.retrieve(paymentIntentId, requestOptions);
         } catch (StripeException ex) {
             throw new IllegalStateException("Falha ao consultar PaymentIntent na Stripe", ex);
         }
