@@ -1,75 +1,73 @@
-# React + TypeScript + Vite
+# Frontend Bilheteria Digital
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SPA em React, Vite e TypeScript para os fluxos do desafio:
 
-Currently, two official plugins are available:
+- navegacao, busca e filtros de eventos publicados;
+- reserva por quantidade ou mapa de assentos;
+- pagamento simulado aprovado ou recusado;
+- area de reservas e ingressos com QR;
+- compartilhamento publico de ingresso;
+- painel do organizador com catalogo externo, criacao, publicacao e cancelamento;
+- tela de portaria com leitura de QR por camera e digitacao manual.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Rodar Localmente
 
-## React Compiler
+Crie `frontend/.env`:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```env
+VITE_API_URL=http://localhost:8080
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_sua_chave_publicavel_de_teste
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Instale e execute:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+npm install
+npm run dev
 ```
+
+URL local:
+
+```text
+http://localhost:5173
+```
+
+## Usuarios De Teste
+
+Senha para todos:
+
+```text
+123456
+```
+
+Perfis:
+
+```text
+organizador@teste.com
+cliente1@teste.com
+portaria@teste.com
+```
+
+## Deploy Na Vercel
+
+Configure o projeto apontando para a pasta `frontend`.
+
+Build command:
+
+```text
+npm run build
+```
+
+Output directory:
+
+```text
+dist
+```
+
+Variavel obrigatoria:
+
+```text
+VITE_API_URL=https://url-do-backend
+```
+
+O arquivo `vercel.json` ja redireciona todas as rotas para `index.html`, permitindo refresh direto em rotas como `/eventos/1` e `/portaria`.

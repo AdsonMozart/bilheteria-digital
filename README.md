@@ -136,7 +136,16 @@ bilheteria_mysql
 
 ## 3. Configurar Variaveis Do Backend
 
-O arquivo `backend/.env.example` mostra quais variaveis sao necessarias. Como o Spring Boot nao carrega `.env` automaticamente neste projeto, configure as variaveis no terminal ou na configuracao de execucao da IDE.
+O arquivo `backend/.env.example` mostra quais variaveis sao necessarias. O backend carrega automaticamente um arquivo local `backend/.env`, que e ignorado pelo Git. Voce tambem pode configurar as mesmas variaveis no terminal ou na configuracao de execucao da IDE.
+
+Para usar arquivo local:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+Depois preencha os valores no `backend/.env`.
 
 No PowerShell:
 
