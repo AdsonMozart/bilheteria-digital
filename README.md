@@ -1,4 +1,4 @@
-﻿# Bilheteria Digital
+# Bilheteria Digital
 
 Sistema de eventos e ingressos desenvolvido com backend em Java/Spring Boot, frontend em React/Vite/TypeScript e banco MySQL. A aplicacao cobre fluxos de organizador, cliente e portaria: catalogo externo, criacao de eventos, reserva por capacidade geral ou assentos, pagamento com Stripe em modo teste, emissao de ingressos com QR assinado, compartilhamento publico e validacao de entrada.
 
@@ -136,20 +136,29 @@ bilheteria_mysql
 
 ## 3. Configurar Variaveis Do Backend
 
-O arquivo `backend/.env.example` mostra quais variaveis sao necessarias. Como o Spring Boot nao carrega `.env` automaticamente neste projeto, configure as variaveis no terminal ou na configuracao de execucao da IDE.
+O arquivo `backend/.env.example` mostra quais variaveis sao necessarias. O backend carrega automaticamente um arquivo local `backend/.env`, que e ignorado pelo Git. Voce tambem pode configurar as mesmas variaveis no terminal ou na configuracao de execucao da IDE.
+
+Para usar arquivo local:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+Depois preencha os valores no `backend/.env`.
 
 No PowerShell:
 
 ```powershell
 cd backend
 $env:DB_USERNAME="bilheteria_user"
-$env:DB_PASSWORD="102030"
+$env:DB_PASSWORD="defina_uma_senha_local"
 $env:JWT_SECRET="chave-local-com-pelo-menos-32-caracteres"
 $env:APP_CORS_ALLOWED_ORIGINS="http://localhost:5173"
-$env:TMDB_ACCESS_TOKEN="TOKEN_TMDB_DO_AVALIADOR"
-$env:TICKETMASTER_API_KEY="CONSUMER_KEY_TICKETMASTER_DO_AVALIADOR"
+$env:TMDB_ACCESS_TOKEN="defina_o_token_tmdb"
+$env:TICKETMASTER_API_KEY="defina_a_consumer_key_ticketmaster"
 $env:TICKETMASTER_COUNTRY_CODE="BR"
-$env:STRIPE_SECRET_KEY="STRIPE_SECRET_KEY_DE_TESTE_DO_AVALIADOR"
+$env:STRIPE_SECRET_KEY="defina_a_chave_secreta_de_teste_da_stripe"
 ```
 
 O `STRIPE_WEBHOOK_SECRET` e configurado depois de iniciar o `stripe listen`, conforme explicado na secao de pagamentos.
@@ -164,7 +173,7 @@ O `STRIPE_WEBHOOK_SECRET` e configurado depois de iniciar o `stripe listen`, con
 4. Configure a variavel:
 
 ```powershell
-$env:TMDB_ACCESS_TOKEN="TOKEN_TMDB_DO_AVALIADOR"
+$env:TMDB_ACCESS_TOKEN="defina_o_token_tmdb"
 ```
 
 Esse token e usado pelo backend como Bearer Token ao consultar filmes.
@@ -177,7 +186,7 @@ Esse token e usado pelo backend como Bearer Token ao consultar filmes.
 4. Configure:
 
 ```powershell
-$env:TICKETMASTER_API_KEY="CONSUMER_KEY_TICKETMASTER_DO_AVALIADOR"
+$env:TICKETMASTER_API_KEY="defina_a_consumer_key_ticketmaster"
 ```
 
 Por padrao, o projeto busca eventos do Brasil:
@@ -200,7 +209,7 @@ $env:TICKETMASTER_COUNTRY_CODE="US"
 4. Configure:
 
 ```powershell
-$env:STRIPE_SECRET_KEY="STRIPE_SECRET_KEY_DE_TESTE_DO_AVALIADOR"
+$env:STRIPE_SECRET_KEY="defina_a_chave_secreta_de_teste_da_stripe"
 ```
 
 A chave publicavel de teste sera usada no frontend:
@@ -581,7 +590,7 @@ stripe listen --events payment_intent.succeeded,payment_intent.payment_failed --
 O Stripe CLI exibira um segredo de webhook. Configure esse valor no terminal do backend:
 
 ```powershell
-$env:STRIPE_WEBHOOK_SECRET="WEBHOOK_SECRET_MOSTRADO_PELO_STRIPE_LISTEN"
+$env:STRIPE_WEBHOOK_SECRET="defina_o_webhook_secret_mostrado_pelo_stripe_listen"
 ```
 
 O backend precisa ser reiniciado depois que essa variavel for configurada.
@@ -824,7 +833,7 @@ Conteudo:
 
 ```env
 VITE_API_URL=http://localhost:8080
-VITE_STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY_DE_TESTE_DO_AVALIADOR
+VITE_STRIPE_PUBLISHABLE_KEY=defina_a_chave_publicavel_de_teste_da_stripe
 ```
 
 Instale dependencias e inicie:
@@ -881,8 +890,8 @@ JWT_SECRET=chave-com-pelo-menos-32-caracteres
 APP_CORS_ALLOWED_ORIGINS=https://seu-frontend.vercel.app
 TMDB_ACCESS_TOKEN=token_tmdb
 TICKETMASTER_API_KEY=chave_ticketmaster
-STRIPE_SECRET_KEY=sk_test_ou_sk_live
-STRIPE_WEBHOOK_SECRET=whsec_producao
+STRIPE_SECRET_KEY=defina_a_chave_secreta_da_stripe
+STRIPE_WEBHOOK_SECRET=defina_o_webhook_secret_da_stripe
 ```
 
 Em producao, configure o webhook da Stripe para:

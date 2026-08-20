@@ -32,6 +32,18 @@ public interface EventoRepository extends JpaRepository<Evento, Long>, JpaSpecif
     @Modifying
     @Query("""
         UPDATE Evento e
+        SET e.capacidadeVendida = e.capacidadeVendida + :quantidade
+        WHERE e.id = :eventoId
+          AND e.capacidadeVendida + :quantidade <= e.capacidade
+        """)
+    int registrarIngressosVendidos(
+            @Param("eventoId") Long eventoId,
+            @Param("quantidade") Integer quantidade
+    );
+
+    @Modifying
+    @Query("""
+        UPDATE Evento e
         SET e.capacidadeVendida = e.capacidadeVendida - :quantidade
         WHERE e.id = :eventoId
           AND e.capacidadeVendida >= :quantidade
