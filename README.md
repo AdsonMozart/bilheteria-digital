@@ -1,10 +1,10 @@
-# Bilheteria Digital
+# Bilheteria Digital :ticket:
 
 Plataforma de eventos e ingressos desenvolvida para o Desafio Elite Dev 2026. O sistema permite que um organizador crie e publique eventos, que clientes reservem e paguem ingressos, e que a portaria valide a entrada por QR Code.
 
-## Decisoes Tecnicas
+## Decisoes Tecnicas :computer:
 
-**Gostaria de ter desenvolvido melhor a proposta do sistema completo, especialmente o frontend e suas interfaces. Foquei mais em entregar as funcionalidades em execução e evitei o uso de IA sempre que possível, buscando demonstrar fundamentação conceitual, principalmente na lógica e nas regras de negócio. Sigo confiante e engajado para as possíveis próximas etapas!**
+**OBS: Gostaria de ter desenvolvido melhor a proposta do sistema completamente, especialmente o frontend e suas interfaces. Foquei mais em priorizar e entregar as funcionalidades em execução e evitei o uso de IA sempre que possível, buscando demonstrar fundamentação conceitual, principalmente na lógica e nas regras de negócio. Sigo confiante e engajado para as possíveis próximas etapas!**
 
 - Escolhi Java para o backend e React para o frontend porque sao stacks robustas, escalaveis e com excelente suporte para aplicacoes web. Tambem sao as tecnologias com que tenho mais dominio.
 - Optei por MySQL por ser simples, eficiente para leituras e bastante adequado para operacoes web transacionais como eventos, reservas, pagamentos e ingressos.
@@ -16,21 +16,15 @@ Plataforma de eventos e ingressos desenvolvida para o Desafio Elite Dev 2026. O 
 - Tratei concorrencia de reserva com updates condicionais atomicos no banco, verificando o numero de linhas afetadas para impedir venda duplicada de capacidade geral ou assento.
 - Usei QR assinado com JWT para dificultar falsificacao de ingresso.
 - Versionei o projeto simulando um fluxo de colaboracao real, com branches por modulo, mensagens de commit padronizadas, pull requests, revisao propria de codigo e merge para a branch principal.
+---
 
-
-Frontend publicado:
+Projeto publicado (Deploy):
 
 ```text
 https://bilheteria-digital.vercel.app
 ```
 
-Backend publicado:
-
-```text
-https://bilheteria-digital-production.up.railway.app
-```
-
-## Stack
+## Stack :books:
 
 - Backend: Java 21, Spring Boot, Spring Security, JWT, Spring Data JPA, Flyway.
 - Frontend: React, Vite, TypeScript, React Router.
@@ -38,7 +32,7 @@ https://bilheteria-digital-production.up.railway.app
 - Pagamento: Stripe em modo teste.
 - Deploy: Vercel para o frontend e Railway para backend + MySQL.
 
-## Principais Funcionalidades
+## Principais Funcionalidades :computer_mouse:
 
 - Login com tres perfis: `ORGANIZADOR`, `CLIENTE` e `PORTARIA`.
 - Cadastro publico de clientes.
@@ -54,9 +48,9 @@ https://bilheteria-digital-production.up.railway.app
 - Tela de portaria com leitura por camera e digitacao manual.
 - Validacao com retorno claro: `VALIDO`, `INVALIDO`, `JA_UTILIZADO` ou `EVENTO_ERRADO`.
 
-## Dados De Teste
+## Dados De Teste :lock:
 
-Todos os usuarios abaixo usam a senha:
+Todos os usuarios abaixo usam a senha abaixo, implantei os logins de cada Role de forma instantânea para facilitar a realização dos testes:
 
 ```text
 123456
@@ -74,7 +68,7 @@ Eventos semeados pelo Flyway:
 - `Show Teste Pista`: evento de capacidade geral.
 - `Cinema Teste Assentos`: evento com mapa de assentos.
 
-## Como Testar Pelo Site
+## Como Testar Pelo Site :bookmark_tabs:
 
 ### 1. Login
 
@@ -143,7 +137,7 @@ Resultados esperados:
 - Ingresso de outro evento: `EVENTO_ERRADO`.
 - Codigo inexistente ou adulterado: `INVALIDO`.
 
-## Como Rodar Localmente
+## Como Rodar Localmente :clipboard:
 
 ### Banco
 
@@ -220,7 +214,7 @@ Frontend local:
 http://localhost:5173
 ```
 
-## Stripe
+## Stripe :credit_card:
 
 Em desenvolvimento local, use Stripe CLI para encaminhar webhooks:
 
@@ -286,9 +280,16 @@ Cobertura principal:
 - pagamento aprovado e recusado;
 - validacao da portaria.
 
-## Limitacoes Conhecidas
+## Limitacoes Conhecidas :warning:
 
 - O cadastro publico cria apenas usuario `CLIENTE`; organizador e portaria entram pelos usuarios semeados.
 - O fluxo de pagamento depende do webhook Stripe estar configurado corretamente.
 - A camera da portaria exige HTTPS no deploy ou permissao do navegador em ambiente local.
-- Nao foram implementados recuperacao de senha, envio de ingresso por email, nota fiscal, revenda ou app nativo, pois ficaram fora do escopo do desafio.
+- Nao foram implementados recuperacao de senha, envio de ingresso por email, nota fiscal, revenda ou app nativo, pelo fator tempo, porém seria um prazer implementar.
+
+## Agradecimentos :tada:
+
+Agradeço muito pela oportunidade de participar do desafio até aqui! Foi um prazer desenvolver a aplicação, principalmente porque gosto de desafios que me permitem explorar novas soluções, integrar funcionalidades e aprender coisas novas no processo, foi uma experiência surreal para mim. Mesmo com o tempo limitado e com vários pontos que eu gostaria de ter refinado ainda mais fiquei muito satisfeito com o que consegui construir e demonstrar. Sigo empolgado, engajado e confiante para os próximos passos. Obrigado pela oportunidade!
+
+---
+Desenvolvido por **Adson Mozart Santos Paixão** :black_nib:
